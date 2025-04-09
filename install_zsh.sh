@@ -1,13 +1,13 @@
-#!/bin/bash
 # 安装 Zsh 和相关配置
 
 # 定义一些路径
 DOTFILES_DIR="$HOME/dotfiles"
 ZSH_CONFIG="$HOME/.zshrc"
+STARSHIP_CONFIG="$HOME/.config/starship.toml"
 
 # 彩色输出的函数
 color_echo() {
-    echo -e "\033[1;32m$1\033[0m"  # 绿色
+    echo -e "\033[1;32m$1\033[0m"
 }
 
 # 备份现有的 .zshrc 文件
@@ -28,7 +28,7 @@ fi
 
 # 创建 Zsh 配置文件 .zshrc 的符号链接
 color_echo "创建 Zsh 配置文件 .zshrc 的符号链接..."
-ln -sf "$DOTFILES_DIR/zsh/.zshrc" $ZSH_CONFIG
+ln -sf "$DOTFILES_DIR/.zshrc" $ZSH_CONFIG
 
 # 安装 Starship 提示符
 if ! command -v starship &> /dev/null; then
@@ -36,12 +36,17 @@ if ! command -v starship &> /dev/null; then
     curl -sS https://starship.rs/install.sh | sh
 fi
 
-# 初始化 Starship 提示符用于 Zsh
-color_echo 'eval "$(starship init zsh)"' >> $ZSH_CONFIG
+# 创建 starship 配置文件 starship.toml 的符号链接
+color_echo "创建 starship 配置文件 starship.toml 的符号链接..."
+ln -sf "$DOTFILES_DIR/.config/starship.toml" STARSHIP_CONFIG
 
 # 设置 Zsh 为默认 shell
 color_echo "正在将 Zsh 设置为默认 shell..."
 chsh -s $(which zsh)
+
+# 切换到 Zsh
+color_echo "正在切换到 Zsh..."
+exec zsh
 
 # 结束操作
 color_echo "=================================================="
