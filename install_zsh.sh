@@ -37,8 +37,12 @@ if ! command -v starship &> /dev/null; then
 fi
 
 # 创建 starship 配置文件 starship.toml 的符号链接
-color_echo "创建 starship 配置文件 starship.toml 的符号链接..."
-ln -sf "$DOTFILES_DIR/.config/starship.toml" STARSHIP_CONFIG
+# color_echo "创建 starship 配置文件 starship.toml 的符号链接..."
+# ln -sf "$DOTFILES_DIR/.config/starship.toml" STARSHIP_CONFIG
+
+# 使用 Starship preset 设置主题并生成 starship.toml 配置文件
+color_echo "正在生成 starship 配置文件..."
+starship preset gruvbox-rainbow -o "$STARSHIP_CONFIG"
 
 # 设置 Zsh 为默认 shell
 color_echo "正在将 Zsh 设置为默认 shell..."
