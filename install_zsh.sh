@@ -40,6 +40,10 @@ fi
 # color_echo "创建 starship 配置文件 starship.toml 的符号链接..."
 # ln -sf "$DOTFILES_DIR/.config/starship.toml" STARSHIP_CONFIG
 
+# 确保 .config 目录存在
+color_echo "确保 .config 目录存在..."
+mkdir -p "$HOME/.config"
+
 # 使用 Starship preset 设置主题并生成 starship.toml 配置文件
 color_echo "正在生成 starship 配置文件..."
 starship preset gruvbox-rainbow -o "$STARSHIP_CONFIG"
