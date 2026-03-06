@@ -66,23 +66,42 @@ plain() {
 run_task() {
     local task="$1"
     local cmd="$2"
+    local max_retries="${3:-3}"
 
-    local start_time=$(date +%s)
-    info "正在执行 $task..."
+    local attempt=1
+    local exit_code=0
 
-    # 前台执行命令，所有输出静默
-    bash -c "$cmd"
-    local exit_code=$?
+    local start_time
+    start_time=$(date +%s)
 
-    local end_time=$(date +%s)
+    while [[ $attempt -le $max_retries ]]; do
+
+        info "正在执行 $task... (第 $attempt/$max_retries 次)"
+
+        bash -c "$cmd"
+        exit_code=$?
+
+        if [[ $exit_code -eq 0 ]]; then
+            local end_time
+            end_time=$(date +%s)
+            local elapsed=$((end_time - start_time))
+            success "$task 执行完成 (耗时 ${elapsed} 秒)"
+            return 0
+        fi
+
+        if [[ $attempt -lt $max_retries ]]; then
+            warn "$task 执行失败，准备重试..."
+            sleep 1
+        fi
+
+        attempt=$((attempt+1))
+    done
+
+    local end_time
+    end_time=$(date +%s)
     local elapsed=$((end_time - start_time))
 
-    if [[ $exit_code -eq 0 ]]; then
-        success "$task 执行完成 (耗时 ${elapsed} 秒)"
-    else
-        error "$task 执行失败 (耗时 ${elapsed} 秒)"
-    fi
-
+    error "$task 执行失败 (已重试 $max_retries 次，耗时 ${elapsed} 秒)"
     return $exit_code
 }
 
@@ -99,5 +118,7 @@ __________.__       .____    .__
 
 EOF
     echo -e "${GREEN}     🎉 BigLiou‘s Dotfiles 配置完成 🎉${NC}"
+    echo
+    echo "请重新打开终端以使环境生效"
     echo
 }
