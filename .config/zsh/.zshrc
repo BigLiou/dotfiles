@@ -9,14 +9,12 @@ export PATH="$HOME/.local/bin:$PATH"
 # 自定义配置路径
 # =====================
 
-# Git 全局配置
-export GIT_CONFIG_GLOBAL="$HOME/.config/git/.gitconfig"
-
 # Starship 配置
-export STARSHIP_CONFIG="$HOME/.config/starship/starship.toml"
+export STARSHIP_CONFIG="$HOME/starship.toml"
 
-# Zsh 历史记录
-export HISTFILE="$HOME/.config/zsh/.zsh_history"
+# mise 配置
+export MISE_GLOBAL_CONFIG_FILE="$HOME/mise.toml"
+
 HISTSIZE=10000
 SAVEHIST=10000
 
