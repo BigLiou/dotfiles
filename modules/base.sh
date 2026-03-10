@@ -1,4 +1,4 @@
-#!/usr/bin/env bash 
+#!/usr/bin/env bash  
 # modules/base.sh
 
 # ====================== 更新软件源 ======================
@@ -8,7 +8,7 @@ update_apt() {
 
     while [[ $retry -le $max_retries ]]; do
         if run_task "更新软件包索引" \
-            "sudo apt-get update -y"; then
+            "sudo apt-get update -y > /dev/null"; then
             return 0
         fi
         retry=$((retry+1))
@@ -26,7 +26,7 @@ install_if_missing() {
     local retry=1
 
     # 检查命令是否存在
-    if command -v "$cmd" &>/dev/null; then
+    if [[ -n "$cmd" ]] && command -v "$cmd" &>/dev/null; then
         success "工具 $pkg 已安装"
         return 0
     fi
@@ -34,8 +34,11 @@ install_if_missing() {
     while [[ $retry -le $max_retries ]]; do
         if run_task "$pkg 安装" \
             "sudo apt-get install -y $pkg > /dev/null"; then
-
-            if command -v "$cmd" &>/dev/null; then
+            if [[ -n "$cmd" ]] && command -v "$cmd" &>/dev/null; then
+                return 0
+            fi
+            # 如果 cmd 为空，直接返回成功
+            if [[ -z "$cmd" ]]; then
                 return 0
             fi
         fi
@@ -59,7 +62,6 @@ install_starship() {
     while [[ $retry -le $max_retries ]]; do
         if run_task "starship 安装" \
             "curl -sS https://starship.rs/install.sh | sh -s -- -y > /dev/null"; then
-
             if command -v starship &>/dev/null; then
                 return 0
             fi
@@ -105,6 +107,8 @@ install_mise() {
 
     if command -v mise &>/dev/null; then
         success "Mise 已安装"
+        # 已安装的话也可以直接信任 dotfiles
+        mise settings add trusted_paths ~/dotfiles &>/dev/null || true
         return 0
     fi
 
@@ -116,6 +120,8 @@ install_mise() {
             "curl -sSf https://mise.run | sh > /dev/null"; then
             if command -v mise &>/dev/null; then
                 success "Mise 安装完成"
+                # 安装完成后自动信任 ~/dotfiles
+                mise settings add trusted_paths ~/dotfiles &>/dev/null || true
                 return 0
             fi
         fi
@@ -128,9 +134,48 @@ install_mise() {
     return 1
 }
 
+# ====================== 安装编译环境和开发库 ======================
+install_build_deps() {
+    section "安装编译环境和开发库"
+
+    local pkgs=(
+        build-essential
+        libssl-dev
+        zlib1g-dev
+        libbz2-dev
+        libreadline-dev
+        libsqlite3-dev
+        clang
+        llvm
+        libncursesw5-dev
+        xz-utils
+        tk-dev
+        libxml2-dev
+        libxmlsec1-dev
+        libffi-dev
+        liblzma-dev
+    )
+
+    local max_retries=3
+    local retry=1
+
+    while [[ $retry -le $max_retries ]]; do
+        if run_task "安装编译环境依赖" \
+            "sudo apt-get install -y ${pkgs[*]} > /dev/null"; then
+            success "编译环境依赖安装完成"
+            return 0
+        fi
+        warning "编译环境依赖安装失败，重试 ($retry/$max_retries)..."
+        retry=$((retry+1))
+        sleep 1
+    done
+
+    error "编译环境依赖安装失败（已重试 $max_retries 次）"
+    return 1
+}
+
 # ====================== 模块对外入口 ======================
 base_install() {
-
     section "基础工具安装"
 
     # 更新软件源
@@ -155,20 +200,7 @@ base_install() {
     install_if_missing tree
 
     # ====================== 安装编译环境依赖 ======================
-    install_if_missing build-essential
-    install_if_missing libssl-dev
-    install_if_missing zlib1g-dev
-    install_if_missing libbz2-dev
-    install_if_missing libreadline-dev
-    install_if_missing libsqlite3-dev
-    install_if_missing llvm
-    install_if_missing libncursesw5-dev
-    install_if_missing xz-utils
-    install_if_missing tk-dev
-    install_if_missing libxml2-dev
-    install_if_missing libxmlsec1-dev
-    install_if_missing libffi-dev
-    install_if_missing liblzma-dev
+    install_build_deps
 
     # ====================== 安装 Zinit & Mise ======================
     install_zinit
