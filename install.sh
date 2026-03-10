@@ -17,51 +17,21 @@ for module in "$SCRIPT_DIR"/modules/*.sh; do
     source "$module"
 done
 
-# ====================== 菜单 ======================
-show_menu() {
-    info "========================================"
-    info "              安装选项"
-    info "========================================"
-    info "1. 安装基础工具"
-    info "2. 安装 Mise、Neovim 和 LazyVim"
-    info "9. 全部安装"
-    info "0. 退出"
-    info "========================================"
-}
-
-get_user_choice() {
-    read -rp "请选择要执行的操作: " choice
-    echo "$choice"
-}
-
 # ====================== 主流程 ======================
 main() {
-    show_menu
-    local choice
-    choice=$(get_user_choice)
+    info "=============================="
+    info "开始安装基础工具"
+    info "=============================="
+    base_install  # 安装 stow、基础工具等
 
-    case "$choice" in
-        0)
-            info "退出安装脚本"
-            exit 0
-            ;;
-        1)
-            base_install
-            ;;
-        2)
-            mise_install
-            ;;
-        9)
-            base_install
-            mise_install
-            ;;
-        *)
-            error "无效的选择：$choice"
-            exit 1
-            ;;
-    esac
+    info "=============================="
+    info "开始建立配置软链接"
+    info "=============================="
+    stow_dotfiles
 
-    banner_done
+    info "=============================="
+    info "安装完成 ✅"
+    info "=============================="
 }
 
 main "$@"

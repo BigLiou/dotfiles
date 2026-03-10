@@ -33,7 +33,7 @@ install_if_missing() {
 
     while [[ $retry -le $max_retries ]]; do
         if run_task "$pkg 安装" \
-            "sudo apt-get install -y $pkg"; then
+            "sudo apt-get install -y $pkg > /dev/null"; then
 
             if command -v "$cmd" &>/dev/null; then
                 return 0
@@ -58,7 +58,7 @@ install_starship() {
 
     while [[ $retry -le $max_retries ]]; do
         if run_task "starship 安装" \
-            "curl -sS https://starship.rs/install.sh | sh -s -- -y"; then
+            "curl -sS https://starship.rs/install.sh | sh -s -- -y > /dev/null"; then
 
             if command -v starship &>/dev/null; then
                 return 0
@@ -71,45 +71,6 @@ install_starship() {
     done
 
     error "starship 安装失败（已重试 $max_retries 次）"
-    return 1
-}
-
-# ====================== 安装编译环境与开发库 ======================
-install_build_deps() {
-    section "安装编译环境和开发库"
-
-    local pkgs=(
-        build-essential
-        libssl-dev
-        zlib1g-dev
-        libbz2-dev
-        libreadline-dev
-        libsqlite3-dev
-        llvm
-        libncursesw5-dev
-        xz-utils
-        tk-dev
-        libxml2-dev
-        libxmlsec1-dev
-        libffi-dev
-        liblzma-dev
-    )
-
-    local max_retries=3
-    local retry=1
-
-    while [[ $retry -le $max_retries ]]; do
-        if run_task "安装编译环境依赖" \
-            "sudo apt-get install -y ${pkgs[*]}"; then
-            success "编译环境依赖安装完成"
-            return 0
-        fi
-        warning "编译环境依赖安装失败，重试 ($retry/$max_retries)..."
-        retry=$((retry+1))
-        sleep 1
-    done
-
-    error "编译环境依赖安装失败（已重试 $max_retries 次）"
     return 1
 }
 
@@ -128,7 +89,8 @@ install_zinit() {
         install_if_missing git
     fi
 
-    run_task "安装 Zinit" "git clone https://github.com/zdharma-continuum/zinit $ZINIT_HOME"
+    # 安装 Zinit
+    run_task "安装 Zinit" "git clone https://github.com/zdharma-continuum/zinit $ZINIT_HOME > /dev/null"
     if [[ -f "$ZINIT_HOME/zinit.zsh" ]]; then
         success "Zinit 安装完成"
     else
@@ -151,7 +113,7 @@ install_mise() {
 
     while [[ $retry -le $max_retries ]]; do
         if run_task "Mise 安装" \
-            "curl -sSf https://mise.run | sh"; then
+            "curl -sSf https://mise.run | sh > /dev/null"; then
             if command -v mise &>/dev/null; then
                 success "Mise 安装完成"
                 return 0
@@ -193,7 +155,20 @@ base_install() {
     install_if_missing tree
 
     # ====================== 安装编译环境依赖 ======================
-    install_build_deps
+    install_if_missing build-essential
+    install_if_missing libssl-dev
+    install_if_missing zlib1g-dev
+    install_if_missing libbz2-dev
+    install_if_missing libreadline-dev
+    install_if_missing libsqlite3-dev
+    install_if_missing llvm
+    install_if_missing libncursesw5-dev
+    install_if_missing xz-utils
+    install_if_missing tk-dev
+    install_if_missing libxml2-dev
+    install_if_missing libxmlsec1-dev
+    install_if_missing libffi-dev
+    install_if_missing liblzma-dev
 
     # ====================== 安装 Zinit & Mise ======================
     install_zinit
