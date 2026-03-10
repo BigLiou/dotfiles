@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env bash 
 # modules/base.sh
 
 # ====================== 更新软件源 ======================
@@ -27,7 +27,7 @@ install_if_missing() {
 
     # 检查命令是否存在
     if command -v "$cmd" &>/dev/null; then
-        success "工具 $pkg 已安装"  # ⚡ 显示包名而不是命令名
+        success "工具 $pkg 已安装"
         return 0
     fi
 
@@ -46,7 +46,7 @@ install_if_missing() {
     return 1
 }
 
-# ====================== 安装 starship ======================
+# ====================== 安装 Starship ======================
 install_starship() {
     if command -v starship &>/dev/null; then
         success "工具 starship 已安装"
@@ -57,11 +57,9 @@ install_starship() {
     local retry=1
 
     while [[ $retry -le $max_retries ]]; do
-        # 执行安装，并捕获返回值
         if run_task "starship 安装" \
             "curl -sS https://starship.rs/install.sh | sh -s -- -y"; then
 
-            # 安装后二次验证
             if command -v starship &>/dev/null; then
                 return 0
             fi
@@ -76,6 +74,98 @@ install_starship() {
     return 1
 }
 
+# ====================== 安装编译环境与开发库 ======================
+install_build_deps() {
+    section "安装编译环境和开发库"
+
+    local pkgs=(
+        build-essential
+        libssl-dev
+        zlib1g-dev
+        libbz2-dev
+        libreadline-dev
+        libsqlite3-dev
+        llvm
+        libncursesw5-dev
+        xz-utils
+        tk-dev
+        libxml2-dev
+        libxmlsec1-dev
+        libffi-dev
+        liblzma-dev
+    )
+
+    local max_retries=3
+    local retry=1
+
+    while [[ $retry -le $max_retries ]]; do
+        if run_task "安装编译环境依赖" \
+            "sudo apt-get install -y ${pkgs[*]}"; then
+            success "编译环境依赖安装完成"
+            return 0
+        fi
+        warning "编译环境依赖安装失败，重试 ($retry/$max_retries)..."
+        retry=$((retry+1))
+        sleep 1
+    done
+
+    error "编译环境依赖安装失败（已重试 $max_retries 次）"
+    return 1
+}
+
+# ====================== 安装 Zinit ======================
+install_zinit() {
+    section "安装 Zinit 插件管理器"
+
+    local ZINIT_HOME="$HOME/.local/share/zinit"
+    if [[ -f "$ZINIT_HOME/zinit.zsh" ]]; then
+        success "Zinit 已安装"
+        return 0
+    fi
+
+    # 确保 git 已安装
+    if ! command -v git &>/dev/null; then
+        install_if_missing git
+    fi
+
+    run_task "安装 Zinit" "git clone https://github.com/zdharma-continuum/zinit $ZINIT_HOME"
+    if [[ -f "$ZINIT_HOME/zinit.zsh" ]]; then
+        success "Zinit 安装完成"
+    else
+        error "Zinit 安装失败"
+        return 1
+    fi
+}
+
+# ====================== 安装 Mise ======================
+install_mise() {
+    section "安装 Mise"
+
+    if command -v mise &>/dev/null; then
+        success "Mise 已安装"
+        return 0
+    fi
+
+    local max_retries=3
+    local retry=1
+
+    while [[ $retry -le $max_retries ]]; do
+        if run_task "Mise 安装" \
+            "curl -sSf https://mise.run | sh"; then
+            if command -v mise &>/dev/null; then
+                success "Mise 安装完成"
+                return 0
+            fi
+        fi
+        warning "Mise 安装失败，重试 ($retry/$max_retries)..."
+        retry=$((retry+1))
+        sleep 1
+    done
+
+    error "Mise 安装失败（已重试 $max_retries 次）"
+    return 1
+}
+
 # ====================== 模块对外入口 ======================
 base_install() {
 
@@ -86,18 +176,28 @@ base_install() {
 
     # ====================== 安装基础组件 ======================
     install_if_missing curl
+    install_if_missing wget
     install_if_missing git
     install_if_missing zip
     install_if_missing unzip
     install_if_missing zsh
     install_if_missing tmux
     install_if_missing stow
+    install_if_missing fzf
+    install_if_missing rg ripgrep
 
     # ====================== 网络与排查工具 ======================
     install_if_missing tcpdump
-    install_if_missing ifconfig net-tools   # net-tools 安装时检测 ifconfig
+    install_if_missing ifconfig net-tools
     install_if_missing htop
     install_if_missing tree
+
+    # ====================== 安装编译环境依赖 ======================
+    install_build_deps
+
+    # ====================== 安装 Zinit & Mise ======================
+    install_zinit
+    install_mise
 
     # ====================== 安装 Starship ======================
     install_starship

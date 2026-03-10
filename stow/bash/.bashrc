@@ -1,1 +1,0 @@
-[ -f ~/.shell_env ] && source ~/.shell_env
