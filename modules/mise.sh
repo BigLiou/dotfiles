@@ -14,7 +14,7 @@ mise_install_env() {
     fi
 
     # 确认配置文件存在
-    local MISE_CONFIG="$HOME/.config/mise/config.toml"
+    local MISE_CONFIG="$HOME/mise.toml"
 
     if [[ ! -f "$MISE_CONFIG" ]]; then
         warn "未检测到 mise 配置文件: $MISE_CONFIG"
