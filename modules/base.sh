@@ -67,7 +67,7 @@ install_starship() {
             fi
         fi
 
-        warning "starship 安装失败，正在重试 ($retry/$max_retries)..."
+        warn "starship 安装失败，正在重试 ($retry/$max_retries)..."
         retry=$((retry+1))
         sleep 1
     done
@@ -121,7 +121,7 @@ install_mise() {
                 return 0
             fi
         fi
-        warning "Mise 安装失败，重试 ($retry/$max_retries)..."
+        warn "Mise 安装失败，重试 ($retry/$max_retries)..."
         retry=$((retry+1))
         sleep 1
     done
@@ -161,7 +161,7 @@ install_build_deps() {
             success "编译环境依赖安装完成"
             return 0
         fi
-        warning "编译环境依赖安装失败，重试 ($retry/$max_retries)..."
+        warn "编译环境依赖安装失败，重试 ($retry/$max_retries)..."
         retry=$((retry+1))
         sleep 1
     done
