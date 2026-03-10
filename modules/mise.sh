@@ -2,128 +2,43 @@
 # modules/mise.sh
 
 ############################################
-# 内部：激活 mise
+# 在 zsh 子 shell 中执行 mise install
 ############################################
-activate_mise() {
-    if [[ ! -x "$HOME/.local/bin/mise" ]]; then
-        error "mise 可执行文件不存在"
-        return 1
-    fi
+mise_install_env() {
 
-    export PATH="$HOME/.local/bin:$PATH"
-    eval "$("$HOME/.local/bin/mise" activate bash)"
-}
+    section "安装开发环境 (mise)"
 
-############################################
-# 安装 Mise（必须成功）
-############################################
-install_mise() {
-
-    if command -v mise &>/dev/null; then
-        success "Mise 已安装"
-        activate_mise || return 1
+    if ! command -v mise &>/dev/null; then
+        warn "mise 未安装，跳过开发环境安装"
         return 0
     fi
 
-    run_task "下载 Mise 安装脚本" \
-        "curl -fSL https://mise.run -o /tmp/mise-install.sh" || return 1
+    # 确认配置文件存在
+    local MISE_CONFIG="$HOME/.config/mise/config.toml"
 
-    run_task "执行 Mise 安装脚本" \
-        "bash /tmp/mise-install.sh" || return 1
-
-    if [[ ! -x "$HOME/.local/bin/mise" ]]; then
-        error "Mise 安装失败，未生成可执行文件"
-        return 1
+    if [[ ! -f "$MISE_CONFIG" ]]; then
+        warn "未检测到 mise 配置文件: $MISE_CONFIG"
+        warn "跳过环境安装"
+        return 0
     fi
 
-    activate_mise || return 1
+    info "使用配置文件: $MISE_CONFIG"
 
-    if ! command -v mise &>/dev/null; then
-        error "mise 激活失败"
-        return 1
-    fi
-
-    success "Mise 安装并激活成功"
+    run_task "安装语言运行时 (mise install)" \
+        "zsh -ic 'mise install'"
 }
 
 ############################################
-# 安装 Node
+# 验证环境是否安装成功
 ############################################
-install_node() {
+verify_mise_env() {
 
-    run_task "安装 Node.js 16" \
-        "mise install node@16" || return 1
+    step "验证运行时环境"
 
-    run_task "安装 Node.js 20" \
-        "mise install node@20" || return 1
-
-    run_task "设置全局默认 Node.js 20" \
-        "mise use -g node@20" || return 1
-
-    activate_mise || return 1
-
-    node -v &>/dev/null || {
-        error "Node 安装后不可用"
-        return 1
-    }
-
-    success "Node.js 16 & 20 安装完成"
-}
-
-############################################
-# 安装 Java + Maven
-############################################
-install_java_maven() {
-
-    run_task "安装 Java Temurin 8" \
-        "mise install java@temurin-8" || return 1
-
-    run_task "安装 Maven" \
-        "mise install maven" || return 1
-
-    run_task "设置默认 Java 8" \
-        "mise use -g java@temurin-8" || return 1
-
-    run_task "设置默认 Maven" \
-        "mise use -g maven" || return 1
-
-    activate_mise || return 1
-
-    java -version &>/dev/null || {
-        error "Java 安装后不可用"
-        return 1
-    }
-
-    mvn -v &>/dev/null || {
-        error "Maven 安装后不可用"
-        return 1
-    }
-
-    success "Java 8 + Maven 安装完成"
-}
-
-############################################
-# 安装 Python
-############################################
-install_python() {
-
-    run_task "安装 Python 3.10" \
-        "mise install python@3.10" || warn "Python 3.10 安装失败，继续执行"
-
-    run_task "安装 Python 3.11" \
-        "mise install python@3.11" || return 1
-
-    run_task "设置默认 Python 3.11" \
-        "mise use -g python@3.11" || return 1
-
-    activate_mise || return 1
-
-    python3 -V &>/dev/null || {
-        error "Python 安装后不可用"
-        return 1
-    }
-
-    success "Python 3.10 & 3.11 安装完成"
+    zsh -ic "node -v" &>/dev/null && success "Node 已安装" || warn "Node 未检测到"
+    zsh -ic "python3 -V" &>/dev/null && success "Python 已安装" || warn "Python 未检测到"
+    zsh -ic "java -version" &>/dev/null && success "Java 已安装" || warn "Java 未检测到"
+    zsh -ic "mvn -v" &>/dev/null && success "Maven 已安装" || warn "Maven 未检测到"
 }
 
 ############################################
@@ -131,16 +46,14 @@ install_python() {
 ############################################
 mise_install() {
 
-    section "Mise 环境一键部署"
+    section "Mise 环境部署"
 
-    install_mise || return 1
-    install_node || return 1
-    install_java_maven || return 1
-    install_python || return 1
+    mise_install_env || return 1
+    verify_mise_env
 
     echo ""
     echo "=================================================="
-    success "全部环境安装完成并已激活"
+    success "开发环境安装完成"
     echo "=================================================="
 }
 
