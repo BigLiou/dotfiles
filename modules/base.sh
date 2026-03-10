@@ -107,8 +107,6 @@ install_mise() {
 
     if command -v mise &>/dev/null; then
         success "Mise 已安装"
-        # 已安装的话也可以直接信任 dotfiles
-        mise settings add trusted_paths ~/dotfiles &>/dev/null || true
         return 0
     fi
 
@@ -120,8 +118,6 @@ install_mise() {
             "curl -sSf https://mise.run | sh > /dev/null"; then
             if command -v mise &>/dev/null; then
                 success "Mise 安装完成"
-                # 安装完成后自动信任 ~/dotfiles
-                mise settings add trusted_paths ~/dotfiles &>/dev/null || true
                 return 0
             fi
         fi
