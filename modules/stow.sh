@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # scripts/stow.sh
-# 一键为 dotfiles 建立软链接
-# 自动备份已有文件/目录
-# 适配 Git、Starship、Mise、Zsh 配置，保持路径与环境变量一致
+# 一键为 dotfiles 建立软链接，自动备份已有文件/目录
+# 适配 Git、Starship、Mise、Zsh 配置
+
 stow_dotfiles() {
     set -euo pipefail
 
@@ -16,43 +16,32 @@ stow_dotfiles() {
         exit 1
     fi
 
+    mkdir -p "$BACKUP_DIR"
     cd "$CONFIG_DIR"
 
     for module in */; do
         module="${module%/}"
-        TARGET="$HOME"
-
         echo "正在为模块 $module 建立软链接"
 
-        # =====================
-        # 自动备份已有文件/目录
-        # =====================
+        # 备份已有文件/目录
         find "$module" -mindepth 1 | while read -r f; do
             REL_PATH="${f#$module/}"   # 相对路径
 
-            # zsh 模块特殊处理
+            # 目标路径
             if [[ "$module" == "zsh" ]]; then
                 if [[ "$REL_PATH" == ".zshrc" ]]; then
                     TARGET_PATH="$HOME/$REL_PATH"
                 else
                     TARGET_PATH="$HOME/.config/zsh/$REL_PATH"
-                    mkdir -p "$(dirname "$TARGET_PATH")"
                 fi
             else
-                # 其他模块保持原来的目标目录
-                case "$module" in
-                    git|starship|mise)
-                        TARGET_PATH="$HOME/.config/$module/$REL_PATH"
-                        mkdir -p "$(dirname "$TARGET_PATH")"
-                        ;;
-                    *)
-                        TARGET_PATH="$HOME/.config/$module/$REL_PATH"
-                        mkdir -p "$(dirname "$TARGET_PATH")"
-                        ;;
-                esac
+                TARGET_PATH="$HOME/.config/$module/$REL_PATH"
             fi
 
-            # 如果目标存在且不是链接，先备份
+            # 创建父目录
+            mkdir -p "$(dirname "$TARGET_PATH")"
+
+            # 备份已有文件/目录
             if [ -e "$TARGET_PATH" ] && [ ! -L "$TARGET_PATH" ]; then
                 BACKUP_PATH="$BACKUP_DIR/$module/$REL_PATH"
                 mkdir -p "$(dirname "$BACKUP_PATH")"
@@ -61,14 +50,13 @@ stow_dotfiles() {
             fi
         done
 
-        # =====================
-        # 创建软链接
-        # =====================
-        # zsh 模块指定 --target=$HOME 保证 .zshrc 放 HOME
+        # 建立软链接
         if [[ "$module" == "zsh" ]]; then
+            # zsh: .zshrc 映射到 $HOME，其余映射到 ~/.config/zsh
             stow --verbose=1 --target="$HOME" --no-folding "$module"
         else
-            stow --verbose=1 --target="$HOME/.config" --no-folding "$module"
+            # 其他模块保留模块名目录
+            stow --verbose=1 --target="$HOME/.config" "$module"
         fi
     done
 
