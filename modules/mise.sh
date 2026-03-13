@@ -26,7 +26,7 @@ mise_install_env() {
 
     # 1️⃣ 信任配置文件（避免 Trust prompt）
     run_task "信任 mise 配置" \
-        "mise trust --yes"
+        "mise trust --yes '$HOME/mise.toml'"
 
     # 2️⃣ 安装运行时
     run_task "安装语言运行时 (mise install)" \

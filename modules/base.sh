@@ -1,6 +1,6 @@
 #!/usr/bin/env bash  
 # modules/base.sh
-
+export PATH="$HOME/.local/bin:$PATH"
 # ====================== 更新软件源 ======================
 update_apt() {
     local max_retries=3
@@ -105,28 +105,22 @@ install_zinit() {
 install_mise() {
     section "安装 Mise"
 
-    if command -v mise &>/dev/null; then
+    # 直接检测实际路径
+    if [[ -x "$HOME/.local/bin/mise" ]]; then
         success "Mise 已安装"
         return 0
     fi
 
-    local max_retries=3
-    local retry=1
+    run_task "Mise 安装" \
+        "curl -fsSL https://mise.run -o /tmp/mise_install.sh && bash /tmp/mise_install.sh"
 
-    while [[ $retry -le $max_retries ]]; do
-        if run_task "Mise 安装" \
-            "curl -sSf https://mise.run | sh > /dev/null"; then
-            if command -v mise &>/dev/null; then
-                success "Mise 安装完成"
-                return 0
-            fi
-        fi
-        warn "Mise 安装失败，重试 ($retry/$max_retries)..."
-        retry=$((retry+1))
-        sleep 1
-    done
+    # 再次检测
+    if [[ -x "$HOME/.local/bin/mise" ]]; then
+        success "Mise 安装完成"
+        return 0
+    fi
 
-    error "Mise 安装失败（已重试 $max_retries 次）"
+    error "Mise 安装失败"
     return 1
 }
 
