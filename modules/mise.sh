@@ -2,7 +2,7 @@
 # modules/mise.sh
 
 ############################################
-# 在 zsh 子 shell 中执行 mise install
+# 安装运行时环境
 ############################################
 mise_install_env() {
 
@@ -24,8 +24,13 @@ mise_install_env() {
 
     info "使用配置文件: $MISE_CONFIG"
 
+    # 1️⃣ 信任配置文件（避免 Trust prompt）
+    run_task "信任 mise 配置" \
+        "mise trust --yes"
+
+    # 2️⃣ 安装运行时
     run_task "安装语言运行时 (mise install)" \
-        "zsh -ic 'mise install'"
+        "mise install"
 }
 
 ############################################
@@ -35,10 +40,10 @@ verify_mise_env() {
 
     step "验证运行时环境"
 
-    zsh -ic "node -v" &>/dev/null && success "Node 已安装" || warn "Node 未检测到"
-    zsh -ic "python3 -V" &>/dev/null && success "Python 已安装" || warn "Python 未检测到"
-    zsh -ic "java -version" &>/dev/null && success "Java 已安装" || warn "Java 未检测到"
-    zsh -ic "mvn -v" &>/dev/null && success "Maven 已安装" || warn "Maven 未检测到"
+    command -v node &>/dev/null && success "Node 已安装" || warn "Node 未检测到"
+    command -v python3 &>/dev/null && success "Python 已安装" || warn "Python 未检测到"
+    command -v java &>/dev/null && success "Java 已安装" || warn "Java 未检测到"
+    command -v mvn &>/dev/null && success "Maven 已安装" || warn "Maven 未检测到"
 }
 
 ############################################
