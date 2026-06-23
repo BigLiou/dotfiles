@@ -21,3 +21,8 @@ if chsh -s "$ZSH_PATH" "$USER"; then
 else
     echo "⚠️ 默认 shell 设置失败，请手动运行: chsh -s $(command -v zsh)"
 fi
+
+# 立即切换到 zsh
+if [[ -z "${ZSH_VERSION:-}" ]]; then
+    exec zsh
+fi

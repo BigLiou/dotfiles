@@ -4,6 +4,9 @@
 
 set -euo pipefail
 
+# mise 安装到 ~/.local/bin，chezmoi 脚本执行时可能不在 PATH 中
+export PATH="$HOME/.local/bin:$PATH"
+
 if ! command -v mise &>/dev/null; then
     echo "⚠️ mise 未安装，跳过运行时安装"
     exit 0

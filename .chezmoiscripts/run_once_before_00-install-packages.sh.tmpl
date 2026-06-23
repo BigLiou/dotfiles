@@ -4,6 +4,37 @@
 
 set -euo pipefail
 
+# ====================== 切换阿里云镜像源 ======================
+echo "🌐 [chezmoi] 切换阿里云镜像源..."
+sudo apt-get install -y -qq lsb-release
+UBUNTU_CODENAME=$(lsb_release -cs)
+
+if [ "$UBUNTU_CODENAME" = "noble" ]; then
+    # Ubuntu 24.04 — deb822 格式
+    sudo tee /etc/apt/sources.list.d/ubuntu.sources > /dev/null <<SOURCES
+Types: deb
+URIs: http://mirrors.aliyun.com/ubuntu/
+Suites: $UBUNTU_CODENAME $UBUNTU_CODENAME-updates $UBUNTU_CODENAME-backports
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: http://mirrors.aliyun.com/ubuntu/
+Suites: $UBUNTU_CODENAME-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+SOURCES
+else
+    # Ubuntu 22.04 及更早 — 传统格式
+    sudo tee /etc/apt/sources.list > /dev/null <<APT
+deb http://mirrors.aliyun.com/ubuntu/ $UBUNTU_CODENAME main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ $UBUNTU_CODENAME-security main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ $UBUNTU_CODENAME-updates main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ $UBUNTU_CODENAME-backports main restricted universe multiverse
+APT
+fi
+echo "✅ 已切换阿里云镜像源"
+
 echo "📦 [chezmoi] 安装基础系统包..."
 
 sudo apt-get update -y

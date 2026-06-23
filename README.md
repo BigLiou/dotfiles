@@ -7,10 +7,11 @@
 `chezmoi apply` 一次，自动完成：
 
 - 配置 `.gitconfig`、`.zshrc`、`mise.toml`、`starship.toml`
+- 切换阿里云镜像源（自动识别 Ubuntu 22.04/24.04）
 - 安装系统包（curl, git, zsh, tmux, fzf, ripgrep 等）
-- 安装 starship、mise、zinit（首次自动装好）
+- 安装 starship、mise、zinit（仅首次自动装好）
 - 部署语言运行时（Node.js, Python, Java, Maven）
-- 设置 zsh 为默认 shell
+- 设置 zsh 为默认 shell 并立即切换
 
 ## 配置内容
 
@@ -25,8 +26,7 @@
 
 ```bash
 # 1. 安装 chezmoi
-sudo apt install chezmoi          # Ubuntu
-# 或: sh -c "$(curl -fsLS get.chezmoi.io)"
+sh -c "$(curl -fsLS https://get.chezmoi.io)"
 
 # 2. 应用配置（会自动执行安装脚本）
 chezmoi init --apply BigLiou/dotfiles
