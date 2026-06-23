@@ -1,0 +1,142 @@
+# =====================
+# 基础环境
+# =====================
+
+export EDITOR=vim
+export PATH="$HOME/.local/bin:$PATH"
+
+# =====================
+# 自定义配置路径
+# =====================
+
+# Starship 配置
+export STARSHIP_CONFIG="$HOME/.config/starship.toml"
+
+# mise 配置
+export MISE_GLOBAL_CONFIG_FILE="$HOME/mise.toml"
+
+HISTSIZE=10000
+SAVEHIST=10000
+
+setopt APPEND_HISTORY
+setopt HIST_IGNORE_ALL_DUPS
+setopt HIST_FIND_NO_DUPS
+setopt HIST_REDUCE_BLANKS
+setopt EXTENDED_HISTORY
+
+# =====================
+# 自动补全
+# =====================
+
+autoload -Uz compinit
+compinit
+
+# =====================
+# Zinit 插件管理器
+# =====================
+
+ZINIT_HOME="$HOME/.local/share/zinit"
+
+if [ ! -f "$ZINIT_HOME/zinit.zsh" ]; then
+    git clone https://github.com/zdharma-continuum/zinit "$ZINIT_HOME"
+fi
+
+source "$ZINIT_HOME/zinit.zsh"
+
+# =====================
+# 插件
+# =====================
+
+zinit light zsh-users/zsh-autosuggestions
+zinit light zsh-users/zsh-completions
+zinit light zsh-users/zsh-syntax-highlighting
+
+# =====================
+# 工具
+# =====================
+
+# fzf
+if command -v fzf >/dev/null 2>&1; then
+    [ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && \
+        source /usr/share/doc/fzf/examples/key-bindings.zsh
+
+    [ -f /usr/share/doc/fzf/examples/completion.zsh ] && \
+        source /usr/share/doc/fzf/examples/completion.zsh
+fi
+
+# starship
+eval "$(starship init zsh)"
+
+# mise
+eval "$(mise activate zsh)"
+
+# 设置代理（默认 192.168.78.66:7897）
+proxy() {
+  local action="$1"
+  local addr="${2:-192.168.78.66:7897}"
+
+  case "$action" in
+    on)
+      export HTTP_PROXY="http://$addr"
+      export HTTPS_PROXY="http://$addr"
+      export ALL_PROXY="socks5://$addr"
+
+      export http_proxy="$HTTP_PROXY"
+      export https_proxy="$HTTPS_PROXY"
+      export all_proxy="$ALL_PROXY"
+
+      export NO_PROXY="localhost,127.0.0.1,.local"
+      export no_proxy="$NO_PROXY"
+
+      echo "终端代理已开启: $addr"
+      ;;
+    off)
+      unset HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY
+      unset http_proxy https_proxy all_proxy no_proxy
+
+      echo "终端代理已关闭"
+      ;;
+    status)
+      echo "HTTP_PROXY: ${HTTP_PROXY:-未设置}"
+      echo "HTTPS_PROXY: ${HTTPS_PROXY:-未设置}"
+      echo "ALL_PROXY: ${ALL_PROXY:-未设置}"
+      echo "NO_PROXY: ${NO_PROXY:-未设置}"
+      ;;
+    *)
+      echo "用法: proxy {on|off|status} [host:port]"
+      ;;
+  esac
+}
+# docker设置代理（默认 192.168.78.66:7897）
+dproxy() {
+  local action="$1"
+  local addr="${2:-192.168.78.66:7897}"
+
+  case "$action" in
+    on)
+      sudo mkdir -p /etc/systemd/system/docker.service.d
+
+      sudo tee /etc/systemd/system/docker.service.d/http-proxy.conf >/dev/null <<EOF
+[Service]
+Environment="HTTP_PROXY=http://$addr"
+Environment="HTTPS_PROXY=http://$addr"
+EOF
+
+      sudo systemctl daemon-reload
+      sudo systemctl restart docker
+      echo "Docker代理已开启: $addr"
+      ;;
+    off)
+      sudo rm -f /etc/systemd/system/docker.service.d/http-proxy.conf
+      sudo systemctl daemon-reload
+      sudo systemctl restart docker
+      echo "Docker代理已关闭"
+      ;;
+    status)
+      systemctl show --property=Environment docker
+      ;;
+    *)
+      echo "用法: dproxy {on|off|status} [host:port]"
+      ;;
+  esac
+}

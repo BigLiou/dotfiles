@@ -1,0 +1,12 @@
+[user]
+    name = BigLiou
+    email = bigliou@qq.com
+
+[core]
+    editor = vim
+    autocrlf = input
+    safecrlf = true
+[safe]
+	directory = *
+[credential]
+	helper = store
