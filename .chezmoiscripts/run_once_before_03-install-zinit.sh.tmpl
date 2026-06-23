@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# run_once_before_03-install-zinit.sh.tmpl
+# 安装 zinit 插件管理器（仅首次 apply 执行）
+
+set -euo pipefail
+
+ZINIT_HOME="$HOME/.local/share/zinit"
+
+if [[ -f "$ZINIT_HOME/zinit.zsh" ]]; then
+    echo "✅ zinit 已安装"
+    exit 0
+fi
+
+echo "⏳ 安装 zinit..."
+git clone https://github.com/zdharma-continuum/zinit "$ZINIT_HOME"
+echo "✅ zinit 安装完成"

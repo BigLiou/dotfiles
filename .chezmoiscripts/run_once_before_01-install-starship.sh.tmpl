@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# run_once_before_01-install-starship.sh.tmpl
+# 安装 starship（仅首次 apply 执行）
+
+set -euo pipefail
+
+if command -v starship &>/dev/null; then
+    echo "✅ starship 已安装"
+    exit 0
+fi
+
+echo "⏳ 安装 starship..."
+curl -sS https://starship.rs/install.sh | sh -s -- -y
+echo "✅ starship 安装完成"

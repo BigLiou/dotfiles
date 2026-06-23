@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# run_once_after_01-set-default-shell.sh.tmpl
+# 设置 zsh 为默认 shell（配置落盘后执行，仅首次 apply 执行）
+
+set -euo pipefail
+
+if ! command -v zsh &>/dev/null; then
+    echo "⚠️ zsh 未安装，跳过默认 shell 设置"
+    exit 0
+fi
+
+ZSH_PATH="$(command -v zsh)"
+if [[ "$SHELL" == "$ZSH_PATH" ]]; then
+    echo "✅ 默认 shell 已是 zsh"
+    exit 0
+fi
+
+echo "⏳ 设置 zsh 为默认 shell..."
+if chsh -s "$ZSH_PATH" "$USER"; then
+    echo "✅ 默认 shell 已设置为 zsh（需重新登录生效）"
+else
+    echo "⚠️ 默认 shell 设置失败，请手动运行: chsh -s $(command -v zsh)"
+fi

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# run_once_before_00-install-packages.sh.tmpl
+# 安装基础 apt 包（仅首次 apply 执行）
+
+set -euo pipefail
+
+echo "📦 [chezmoi] 安装基础系统包..."
+
+sudo apt-get update -y
+
+PACKAGES=(
+    curl wget git zip unzip zsh tmux fzf ripgrep stow
+    build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev
+    libsqlite3-dev libncursesw5-dev xz-utils tk-dev libxml2-dev
+    libxmlsec1-dev libffi-dev liblzma-dev tcpdump net-tools htop tree
+)
+
+for pkg in "${PACKAGES[@]}"; do
+    cmd="${pkg%% *}"
+    pkgname="${pkg##* }"
+    # cmd 部分可能含空格（如 "rg ripgrep"），取第一个单词作为命令检测
+    check_cmd="${cmd%% *}"
+    if command -v "$check_cmd" &>/dev/null; then
+        echo "✅ $pkgname 已安装，跳过"
+    else
+        echo "⏳ 安装 $pkgname..."
+        sudo apt-get install -y "$pkgname"
+    fi
+done
+
+echo "✅ [chezmoi] 基础系统包安装完成"
