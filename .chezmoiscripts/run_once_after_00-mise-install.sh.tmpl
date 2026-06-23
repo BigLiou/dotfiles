@@ -26,11 +26,11 @@ mise install
 
 echo "✅ 语言运行时安装完成"
 
-# 验证
+# 验证（用 mise which 检测，不需要 mise activate 加载）
 echo ""
 echo "━━━ 环境验证 ━━━"
 for cmd in node python3 java mvn; do
-    if command -v "$cmd" &>/dev/null; then
+    if mise which "$cmd" &>/dev/null; then
         echo "✅ $cmd 可用"
     else
         echo "⚠️ $cmd 未检测到"

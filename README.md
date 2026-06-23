@@ -24,12 +24,20 @@
 
 ## 新机器初始化
 
+### 方式一：分步执行
+
 ```bash
 # 1. 安装 chezmoi
 sh -c "$(curl -fsLS https://get.chezmoi.io)"
 
 # 2. 应用配置（会自动执行安装脚本）
-chezmoi init --apply BigLiou/dotfiles
+~/bin/chezmoi init --apply BigLiou/dotfiles
+```
+
+### 方式二：一行命令
+
+```bash
+sh -c "$(curl -fsLS https://get.chezmoi.io)" && ~/bin/chezmoi init --apply BigLiou/dotfiles
 ```
 
 ## 日常使用

@@ -17,12 +17,12 @@ fi
 
 echo "⏳ 设置 zsh 为默认 shell..."
 if chsh -s "$ZSH_PATH" "$USER"; then
-    echo "✅ 默认 shell 已设置为 zsh（需重新登录生效）"
+    echo "✅ 默认 shell 已设置为 zsh"
 else
     echo "⚠️ 默认 shell 设置失败，请手动运行: chsh -s $(command -v zsh)"
 fi
 
-# 立即切换到 zsh
+# 立即切换到 zsh（系统无需重新登录）
 if [[ -z "${ZSH_VERSION:-}" ]]; then
     exec zsh
 fi
