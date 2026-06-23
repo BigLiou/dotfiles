@@ -20,6 +20,9 @@ fi
 
 echo "⏳ 信任 mise 配置..."
 mise trust --yes "$MISE_CONFIG"
+# 同时信任 chezmoi 仓库目录下的 mise.toml（czcd 进入时不会报错）
+CHEZMOI_MISE="$HOME/.local/share/chezmoi/mise.toml"
+[ -f "$CHEZMOI_MISE" ] && mise trust --yes "$CHEZMOI_MISE"
 
 echo "⏳ 安装语言运行时..."
 mise install
