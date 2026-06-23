@@ -42,25 +42,38 @@ sh -c "$(curl -fsLS https://get.chezmoi.io)" && ~/bin/chezmoi init --apply BigLi
 
 ## 日常使用
 
+所有 chezmoi 命令都可通过 `cz` 前缀缩写使用：
+
+| 缩写 | 完整命令 |
+|---|---|
+| `cza` | `chezmoi add` |
+| `czap` | `chezmoi apply` |
+| `czd` | `chezmoi diff` |
+| `cze` | `chezmoi edit` |
+| `czs` | `chezmoi status` |
+| `czu` | `chezmoi update` |
+| `czcd` | `chezmoi cd` |
+| `czg` | `chezmoi git` |
+
 ```bash
-chezmoi add ~/.zshrc              # 添加新配置到仓库
-chezmoi add ~/.config/starship.toml
+cza ~/.zshrc                     # chezmoi add
+cza ~/.config/starship.toml
 
-chezmoi edit ~/.zshrc             # 编辑配置（自动修改源文件）
+cze ~/.zshrc                     # chezmoi edit（自动修改源文件）
 
-chezmoi diff                      # 查看源文件与目标文件的差异
+czd                              # chezmoi diff
 
-chezmoi apply                     # 应用所有配置（也触发首次安装脚本）
+czap                             # chezmoi apply（也触发首次安装脚本）
 
-chezmoi update                    # 拉取远程最新配置并 apply
+czu                              # chezmoi update（拉取远程并 apply）
 
-chezmoi status                    # 查看待应用的变更
+czs                              # chezmoi status
 
-chezmoi cd                        # 进入 chezmoi 仓库目录
+czcd                             # chezmoi cd（进入仓库目录）
 
-chezmoi git add .                 # 手动 git 操作
-chezmoi git commit -m "xxx"
-chezmoi git push
+czg add .                        # chezmoi git 操作
+czg commit -m "xxx"
+czg push
 
-chezmoi state delete --script <script名>  # 清除 run_once 记录，重跑安装脚本
+chezmoi state delete --script <脚本名>  # 清除 run_once 记录，重跑安装脚本
 ```

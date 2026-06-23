@@ -140,3 +140,8 @@ EOF
       ;;
   esac
 }
+
+# =====================
+# 自定义别名
+# =====================
+[ -f "$HOME/.zsh_aliases" ] && source "$HOME/.zsh_aliases"

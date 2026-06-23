@@ -1,0 +1,11 @@
+# =====================
+# chezmoi 缩写
+# =====================
+alias cza='chezmoi add'
+alias czap='chezmoi apply'
+alias czd='chezmoi diff'
+alias cze='chezmoi edit'
+alias czs='chezmoi status'
+alias czu='chezmoi update'
+alias czcd='chezmoi cd'
+alias czg='chezmoi git'

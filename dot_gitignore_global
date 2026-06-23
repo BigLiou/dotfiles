@@ -1,0 +1,4 @@
+# macOS
+.DS_Store
+# 前端
+node_modules/
