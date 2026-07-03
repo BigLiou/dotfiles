@@ -142,6 +142,86 @@ EOF
 }
 
 # =====================
+# 端口查进程
+# =====================
+
+# 查看端口被哪个进程占用，用法:
+#   findport 8080           # 查看 8080 端口的进程
+#   findport 8080 -k        # 查看并杀掉占用进程
+#   findport 8080 -k -9     # 查看并强杀 (-9 可换成任意信号)
+findport() {
+  if [ $# -lt 1 ]; then
+    echo "用法: findport <port> [-k] [信号]"
+    echo "  -k    杀掉占用该端口的进程"
+    echo "  信号  传给 kill 的信号值，默认 TERM (15)"
+    return 1
+  fi
+
+  local port="$1"
+  local do_kill=0
+  local signal="TERM"
+
+  # 解析可选参数
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -k) do_kill=1 ;;
+      -*) signal="${1#-}" ;;
+    esac
+    shift
+  done
+
+  # 用 ss 查监听端口的进程，优先
+  local pid_info
+  pid_info=$(ss -tlnp "sport = :$port" 2>/dev/null | tail -n +2)
+
+  if [ -z "$pid_info" ]; then
+    # ss 没找到，试试 lsof
+    if command -v lsof >/dev/null 2>&1; then
+      pid_info=$(lsof -i ":$port" 2>/dev/null)
+    fi
+  fi
+
+  if [ -z "$pid_info" ]; then
+    echo "端口 $port 没有被占用"
+    return 1
+  fi
+
+  # 提取 PID — 只匹配 ss 的 pid=NNNN 或 lsof 第二列的 PID
+  local pids
+  if echo "$pid_info" | grep -q 'pid='; then
+    # ss 格式: users:(("nginx",pid=48088,fd=3))
+    pids=$(echo "$pid_info" | grep -oP 'pid=\K\d+' | sort -u)
+  else
+    # lsof 格式: COMMAND PID USER ...
+    pids=$(echo "$pid_info" | awk 'NR>1 {print $2}' | grep -E '^[0-9]+$' | sort -u)
+  fi
+
+  if [ -z "$pids" ]; then
+    echo "端口 $port 被占用，但未能识别出 PID（可能需要 root 权限）"
+    return 1
+  fi
+
+  # 取第一个 PID（监听端口只会有一个进程）
+  local pid
+  pid=$(echo "$pids" | head -1)
+
+  # 展示信息
+  local cmd="(未知)"
+  if [ -r "/proc/$pid/cmdline" ]; then
+    cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" | head -c 300)
+  fi
+  echo "端口 $port 被以下进程占用:"
+  echo "  PID: $pid"
+  echo "  命令: $cmd"
+
+  if [ "$do_kill" -eq 1 ]; then
+    echo "→ 正在发送 SIG$signal 到 PID $pid ..."
+    kill "-$signal" "$pid" 2>/dev/null && echo "  已杀掉" || echo "  操作失败"
+  fi
+}
+
+# =====================
 # 自定义别名
 # =====================
 [ -f "$HOME/.zsh_aliases" ] && source "$HOME/.zsh_aliases"

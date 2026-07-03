@@ -9,3 +9,8 @@ alias czs='chezmoi status'
 alias czu='chezmoi update'
 alias czcd='chezmoi cd'
 alias czg='chezmoi git'
+
+# =====================
+# 端口查进程
+# =====================
+alias fp='findport'

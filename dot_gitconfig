@@ -4,9 +4,10 @@
 
 [core]
     editor = vim
-    autocrlf = input
+	autocrlf = input
     safecrlf = true
     excludesfile = ~/.gitignore_global
+	fileMode = false
 
 [safe]
 	directory = *
