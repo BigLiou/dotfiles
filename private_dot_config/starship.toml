@@ -11,6 +11,7 @@ $git_branch\
 $git_status\
 [](fg:#FCA17D bg:#86BBD8)\
 $c\
+$cpp\
 $elixir\
 $elm\
 $golang\
@@ -19,14 +20,19 @@ $haskell\
 $java\
 $julia\
 $nodejs\
+$python\
 $nim\
 $rust\
 $scala\
 [](fg:#86BBD8 bg:#06969A)\
 $docker_context\
-[](fg:#06969A bg:#33658A)\
+[](fg:#06969A bg:#957fb8)\
+$cmd_duration\
+[](fg:#957fb8 bg:#33658A)\
 $time\
-[ ](fg:#33658A)\
+[ ](fg:#33658A)\
+$line_break
+$character
 """
 
 # Disable the blank line at the start of the prompt
@@ -45,7 +51,66 @@ disabled = false
 # represents the current operating system
 [os]
 style = "bg:#9A348E"
-disabled = true # Disabled by default
+disabled = false # Disabled by default
+[os.symbols]
+AIX = " "
+AlmaLinux = " "
+Alpaquita = " "
+Alpine = " "
+ALTLinux = " "
+Amazon = " "
+Android = " "
+AOSC = " "
+Arch = " "
+Artix = " "
+Bluefin = " "
+CachyOS = " "
+CentOS = " "
+Debian = " "
+DragonFly = " "
+Elementary = " "
+Emscripten = " "
+EndeavourOS = " "
+Fedora = " "
+FreeBSD = " "
+Garuda = " "
+Gentoo = " "
+HardenedBSD = "󰞌 "
+Illumos = " "
+InstantOS = " "
+Ios = "󰀷 "
+Kali = " "
+Linux = " "
+Mabox = " "
+Macos = " "
+Manjaro = " "
+Mariner = " "
+MidnightBSD = " "
+Mint = " "
+NetBSD = " "
+NixOS = " "
+Nobara = " "
+OpenBSD = " "
+OpenCloudOS = " "
+openEuler = " "
+openSUSE = " "
+OracleLinux = "󰺡 "
+PikaOS = " "
+Pop = " "
+Raspbian = " "
+Redhat = "󱄛 "
+RedHatEnterprise = "󱄛 "
+Redox = "󰀘 "
+RockyLinux = " "
+Solus = " "
+SUSE = " "
+Ubuntu = " "
+Ultramarine = " "
+Unknown = " "
+Uos = " "
+Void = " "
+Windows = "󰍲 "
+Zorin = " "
 
 [directory]
 style = "bg:#DA627D"
@@ -67,27 +132,27 @@ truncation_symbol = "…/"
 # "Important 󰈙 " = " 󰈙 "
 
 [c]
-symbol = " "
+symbol = ""
 style = "bg:#86BBD8"
 format = '[ $symbol ($version) ]($style)'
 
 [cpp]
-symbol = " "
+symbol = ""
 style = "bg:#86BBD8"
 format = '[ $symbol ($version) ]($style)'
 
 [docker_context]
-symbol = " "
+symbol = ""
 style = "bg:#06969A"
 format = '[ $symbol $context ]($style)'
 
 [elixir]
-symbol = " "
+symbol = ""
 style = "bg:#86BBD8"
 format = '[ $symbol ($version) ]($style)'
 
 [elm]
-symbol = " "
+symbol = ""
 style = "bg:#86BBD8"
 format = '[ $symbol ($version) ]($style)'
 
@@ -101,36 +166,43 @@ style = "bg:#FCA17D"
 format = '[$all_status$ahead_behind ]($style)'
 
 [golang]
-symbol = " "
+symbol = ""
 style = "bg:#86BBD8"
 format = '[ $symbol ($version) ]($style)'
 
 [gradle]
+symbol = ""
 style = "bg:#86BBD8"
 format = '[ $symbol ($version) ]($style)'
 
 [haskell]
-symbol = " "
+symbol = ""
 style = "bg:#86BBD8"
 format = '[ $symbol ($version) ]($style)'
 
 [java]
-symbol = " "
+symbol = ""
 style = "bg:#86BBD8"
 format = '[ $symbol ($version) ]($style)'
 
 [julia]
-symbol = " "
+symbol = ""
 style = "bg:#86BBD8"
 format = '[ $symbol ($version) ]($style)'
 
 [nodejs]
-symbol = ""
+symbol = ""
 style = "bg:#86BBD8"
 format = '[ $symbol ($version) ]($style)'
 
+[python]
+symbol = ""
+style = "bg:#86BBD8"
+format = '[ $symbol $version ${virtualenv} ]($style)'
+detect_folders = [".venv", "venv", "env"]
+
 [nim]
-symbol = "󰆥 "
+symbol = "󰆥"
 style = "bg:#86BBD8"
 format = '[ $symbol ($version) ]($style)'
 
@@ -140,12 +212,23 @@ style = "bg:#86BBD8"
 format = '[ $symbol ($version) ]($style)'
 
 [scala]
-symbol = " "
+symbol = ""
 style = "bg:#86BBD8"
 format = '[ $symbol ($version) ]($style)'
+
+[cmd_duration]
+min_time = 5000 # 超过5秒就显示
+show_milliseconds = true # 显示毫秒
+style = "bg:#957fb8 fg:white"
+format = '[ 󱦟 $duration ]($style)'
 
 [time]
 disabled = false
 time_format = "%R" # Hour:Minute Format
 style = "bg:#33658A"
-format = '[ ♥ $time ]($style)'
+format = '[  $time ]($style)'
+
+# 新增命令状态红绿标记
+[character]
+success_symbol = "[❯](fg:green bold)"
+error_symbol = "[❯](fg:red bold)"
