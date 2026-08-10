@@ -25,8 +25,8 @@ alias fd='fdfind'                          # fd：快速文件查找（Ubuntu �
 # =====================
 # eza 现代 ls
 # =====================
-eza_base="--icons --group-directories-first"                 # eza 基础参数：图标 + 目录优先
-eza_tree_common="--icons --git-ignore --group-directories-first --no-symlinks"  # eza 树形参数：忽略 .gitignore 与符号链接
+eza_base=(--icons --group-directories-first)                 # eza 基础参数：图标 + 目录优先
+eza_tree_common=(--icons --git-ignore --group-directories-first --no-symlinks)  # eza 树形参数：忽略 .gitignore 与符号链接
 
 # 简略浏览
 alias ls="eza $eza_base"                   # ls：基础列表

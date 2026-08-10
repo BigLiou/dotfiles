@@ -7,9 +7,9 @@
 `chezmoi apply` 一次，自动完成：
 
 - 配置 `.gitconfig`、`.zshrc`、`mise.toml`、`starship.toml`
-- 切换阿里云镜像源（自动识别 Ubuntu 22.04/24.04）
+- 切换镜像源（阿里云/清华/中科大，可选不切换，Ubuntu 24.04+）
 - 安装系统包（curl, git, zsh, tmux, fzf, ripgrep 等）
-- 安装 starship、mise、zinit（仅首次自动装好）
+- 安装 starship、mise、zinit、claude、yazi、lazygit、lazydocker、docker（仅首次自动装好）
 - 部署语言运行时（Node.js, Python, Java, Maven）
 - 设置 zsh 为默认 shell 并立即切换
 
@@ -75,5 +75,5 @@ czg add .                        # chezmoi git 操作
 czg commit -m "xxx"
 czg push
 
-chezmoi state delete --script <脚本名>  # 清除 run_once 记录，重跑安装脚本
+chezmoi state delete-bucket --bucket=scriptState  # 清除所有 run_once 记录，重跑安装脚本
 ```

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # run_once_before_00-install-packages.sh.tmpl
-# 安装基础 apt 包（仅首次 apply 执行）
+# 安装基础 apt 包（仅首次 apply 执行，Ubuntu 24.04+）
 
 set -euo pipefail
 
@@ -22,12 +22,9 @@ esac
 
 if [ -n "$MIRROR_URL" ]; then
     echo "🌐 切换镜像源：$MIRROR_URL"
-    sudo apt-get install -y -qq lsb-release
-    UBUNTU_CODENAME=$(lsb_release -cs)
-
-    if [ "$UBUNTU_CODENAME" = "noble" ]; then
-        # Ubuntu 24.04 — deb822 格式
-        sudo tee /etc/apt/sources.list.d/ubuntu.sources > /dev/null <<SOURCES
+    # Ubuntu 24.04+ 统一 deb822 格式；os-release 取代号，无需 lsb-release
+    UBUNTU_CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+    sudo tee /etc/apt/sources.list.d/ubuntu.sources > /dev/null <<SOURCES
 Types: deb
 URIs: $MIRROR_URL
 Suites: $UBUNTU_CODENAME $UBUNTU_CODENAME-updates $UBUNTU_CODENAME-backports
@@ -40,15 +37,6 @@ Suites: $UBUNTU_CODENAME-security
 Components: main restricted universe multiverse
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 SOURCES
-    else
-        # Ubuntu 22.04 及更早 — 传统格式
-        sudo tee /etc/apt/sources.list > /dev/null <<APT
-deb $MIRROR_URL $UBUNTU_CODENAME main restricted universe multiverse
-deb $MIRROR_URL $UBUNTU_CODENAME-security main restricted universe multiverse
-deb $MIRROR_URL $UBUNTU_CODENAME-updates main restricted universe multiverse
-deb $MIRROR_URL $UBUNTU_CODENAME-backports main restricted universe multiverse
-APT
-    fi
     echo "✅ 已切换镜像源"
 else
     echo "ℹ️ 保持系统默认源，不切换镜像"
