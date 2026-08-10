@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# run_once_before_07-install-lazydocker.sh.tmpl
+# 安装 lazydocker（官方安装脚本，仅首次 apply 执行，Ubuntu）
+
+set -euo pipefail
+
+if command -v lazydocker &>/dev/null; then
+    echo "✅ lazydocker 已安装"
+    exit 0
+fi
+
+echo "⏳ 安装 lazydocker..."
+curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+echo "✅ lazydocker 安装完成"

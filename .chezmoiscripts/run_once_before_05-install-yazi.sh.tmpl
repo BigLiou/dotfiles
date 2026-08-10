@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# run_once_before_05-install-yazi.sh.tmpl
+# 安装 yazi（官方 APT 源，仅首次 apply 执行，Ubuntu）
+
+set -euo pipefail
+
+if command -v yazi &>/dev/null; then
+    echo "✅ yazi 已安装"
+    exit 0
+fi
+
+echo "⏳ 添加 yazi 官方 APT 源..."
+curl -fsSL https://yazi-rs.github.io/builds/yazi-keyring.gpg | sudo tee /usr/share/keyrings/yazi-keyring.gpg >/dev/null
+echo 'deb [signed-by=/usr/share/keyrings/yazi-keyring.gpg] https://yazi-rs.github.io/builds/ stable main' | sudo tee /etc/apt/sources.list.d/yazi.list >/dev/null
+sudo apt-get update -y
+echo "⏳ 安装 yazi..."
+sudo apt-get install -y yazi
+echo "✅ yazi 安装完成"

@@ -1,16 +1,46 @@
 # =====================
 # chezmoi 缩写
 # =====================
-alias cza='chezmoi add'
-alias czap='chezmoi apply'
-alias czd='chezmoi diff'
-alias cze='chezmoi edit'
-alias czs='chezmoi status'
-alias czu='chezmoi update'
-alias czcd='chezmoi cd'
-alias czg='chezmoi git'
+alias cza='chezmoi add'                    # chezmoi add：添加文件到仓库
+alias czap='chezmoi apply'                 # chezmoi apply：应用配置到系统
+alias czd='chezmoi diff'                   # chezmoi diff：查看源文件与目标差异
+alias cze='chezmoi edit'                   # chezmoi edit：编辑源文件
+alias czs='chezmoi status'                 # chezmoi status：查看待应用变更
+alias czu='chezmoi update'                 # chezmoi update：拉取远程并应用
+alias czcd='chezmoi cd'                    # chezmoi cd：进入仓库目录
+alias czg='chezmoi git'                    # chezmoi git：在仓库内执行 git
 
 # =====================
 # 端口查进程
 # =====================
-alias fp='findport'
+alias fp='findport'                        # findport：查端口占用（fp 8080 查看，-k 杀掉）
+
+# =====================
+# 命令增强（bat / fd）
+# =====================
+alias bat='batcat'                         # bat：语法高亮的 cat（Ubuntu 包名 batcat）
+alias cat='batcat'                         # cat：默认走 batcat（长文件自动分页，q 退出）
+alias fd='fdfind'                          # fd：快速文件查找（Ubuntu 包名 fdfind）
+
+# =====================
+# eza 现代 ls
+# =====================
+eza_base="--icons --group-directories-first"                 # eza 基础参数：图标 + 目录优先
+eza_tree_common="--icons --git-ignore --group-directories-first --no-symlinks"  # eza 树形参数：忽略 .gitignore 与符号链接
+
+# 简略浏览
+alias ls="eza $eza_base"                   # ls：基础列表
+alias lsd="eza -D $eza_base"               # lsd：仅显示目录
+alias lsf="eza -f $eza_base"               # lsf：仅显示文件
+
+# 详细列表（带列标题 -h）
+alias ll='eza -lh $eza_base --git'         # ll：详细列表 + git 状态
+alias la='eza -lha $eza_base'              # la：详细列表 + 隐藏文件
+alias lla='eza -lha $eza_base --git'       # lla：详细 + 隐藏 + git 状态
+
+# 树形目录
+alias tree='eza -T $eza_tree_common -L 2'  # tree：树形，默认 2 层
+alias tree1='eza -T $eza_tree_common -L 1' # tree1：树形 1 层
+alias tree3='eza -T $eza_tree_common -L 3' # tree3：树形 3 层
+alias tree4='eza -T $eza_tree_common -L 4' # tree4：树形 4 层
+alias tree5='eza -T $eza_tree_common -L 5' # tree5：树形 5 层
