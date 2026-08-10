@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# run_once_before_04-install-claude.sh.tmpl
+# 安装 Claude Code CLI（仅首次 apply 执行）
+
+set -euo pipefail
+
+if command -v claude &>/dev/null || [[ -x "$HOME/.local/bin/claude" ]]; then
+    echo "✅ claude 已安装"
+    exit 0
+fi
+
+echo "⏳ 安装 claude..."
+curl -fsSL https://claude.ai/install.sh | bash
+echo "✅ claude 安装完成"
