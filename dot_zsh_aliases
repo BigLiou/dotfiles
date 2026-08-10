@@ -44,3 +44,44 @@ alias tree1='eza -T $eza_tree_common -L 1' # tree1：树形 1 层
 alias tree3='eza -T $eza_tree_common -L 3' # tree3：树形 3 层
 alias tree4='eza -T $eza_tree_common -L 4' # tree4：树形 4 层
 alias tree5='eza -T $eza_tree_common -L 5' # tree5：树形 5 层
+
+# =====================
+# lazygit / lazydocker
+# =====================
+alias lzg='lazygit'                        # lzg：lazygit 终端 Git 界面（TUI，j/k 导航）
+alias lzd='lazydocker'                     # lzd：lazydocker 终端 Docker 管理界面
+
+# =====================
+# docker 常用
+# =====================
+alias d='docker'                           # d：docker 前缀
+alias dps='docker ps'                      # dps：运行中的容器
+alias dpsa='docker ps -a'                  # dpsa：所有容器（含已停止）
+alias dimg='docker images'                 # dimg：镜像列表
+alias ds='docker save -o'                  # ds：导出镜像为 tar（ds 输出.tar 镜像名）
+alias dl='docker load -i'                  # dl：导入镜像（dl 镜像.tar）
+alias db='docker build -t'                 # db：构建镜像（默认走 BuildKit）
+alias dbnc='docker build --no-cache -t'    # dbnc：无缓存构建
+alias dlog='docker logs -f'                # dlog：跟踪容器日志
+alias dlog100='docker logs --tail=100 -f'  # dlog100：只看最近 100 行日志，避免日志刷屏
+alias dstats='docker stats'                # dstats：实时容器资源占用（CPU/内存/网络，Ctrl-C 退出）
+alias dex='docker exec -it'                # dex：进入容器终端
+alias drm='docker rm'                      # drm：删除容器
+alias drm-all='docker rm $(docker ps -aq -f status=exited)'  # drm-all：一键删除所有已停止容器
+alias drmi='docker rmi'                    # drmi：删除镜像
+alias dstop='docker stop'                  # dstop：停止容器
+alias dstop-all='docker stop $(docker ps -q)'  # dstop-all：一键停止所有运行容器
+alias dstart='docker start'                # dstart：启动容器
+alias drestart='docker restart'            # drestart：重启容器
+alias dprune='docker image prune -f'       # dprune：清理悬空镜像（无标签的 <none>:<none>）
+
+# =====================
+# docker compose 常用
+# =====================
+alias dc='docker compose'                  # dc：docker compose（新版插件）
+alias dcu='docker compose up -d'           # dcu：后台启动 compose
+alias dcd='docker compose down'            # dcd：停止并删除 compose 服务
+alias dcl='docker compose logs -f'         # dcl：跟踪 compose 日志
+alias dcl100='docker compose logs --tail=100 -f'  # dcl100：只看最近 100 行日志，避免日志刷屏
+alias dcps='docker compose ps'             # dcps：compose 服务状态
+alias dcexec='docker compose exec'         # dcexec：在 compose 服务内执行命令

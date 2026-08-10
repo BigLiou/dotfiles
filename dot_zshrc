@@ -227,6 +227,58 @@ findport() {
 }
 
 # =====================
+# 万能打包 / 万能解压（成对函数）
+# =====================
+
+# pack：按扩展名自动选择压缩方式，用法:
+#   pack app.tar.xz ./myapp        # 自动处理 tar.gz / tar.xz / tar.bz2 / zip / 7z
+pack() {
+  [[ $# -lt 2 ]] && {
+    echo "用法：pack 输出压缩包名 待打包文件/目录..."
+    echo "示例：pack app.tar.xz ./myapp"
+    return 1
+  }
+  local out="$1"
+  shift
+  case "$out" in
+    *.tar.gz|*.tgz)   tar -czpf "$out" "$@" ;;
+    *.tar.xz|*.txz)   tar -cJpf "$out" "$@" ;;
+    *.tar.bz2|*.tbz2) tar -cjpf "$out" "$@" ;;
+    *.zip)            7z a -tzip -mx=9 -bb1 "$out" "$@" ;;
+    *.7z)             7z a -t7z -mx=9 -bb1 "$out" "$@" ;;
+    *)
+      echo "不支持格式：$out"
+      return 2
+      ;;
+  esac
+  echo "✅ 打包完成：$out"
+}
+
+# extract：按扩展名自动识别并解压，用法:
+#   extract node-v20.tar.xz       # 自动处理 tar.gz / tar.xz / tar.bz2 / tar / zip / 7z / rar / gz / bz2
+extract() {
+  [[ $# -eq 0 ]] && { echo "用法: extract <压缩包文件路径>"; return 1; }
+  local file="$1"
+  [[ ! -f "$file" ]] && { echo "错误：文件 $file 不存在"; return 1; }
+
+  case "$file" in
+    *.tar.gz|*.tgz)        tar xzf "$file" ;;
+    *.tar.xz|*.txz)        tar xJf "$file" ;;
+    *.tar.bz2|*.tbz2)      tar xjf "$file" ;;
+    *.tar)                 tar xf "$file"  ;;
+    *.zip)                 unzip -O CP936 "$file" ;;
+    *.7z|*.rar|*.zipx|*.iso) 7z x "$file" ;;
+    *.gz)                  gunzip "$file" ;;
+    *.bz2)                 bunzip2 "$file" ;;
+    *)
+      echo "暂不支持解压格式：$file"
+      return 2
+      ;;
+  esac
+  echo "✅ 解压完毕：$file"
+}
+
+# =====================
 # 自定义别名
 # =====================
 [ -f "$HOME/.zsh_aliases" ] && source "$HOME/.zsh_aliases"
