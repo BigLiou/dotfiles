@@ -4,38 +4,57 @@
 
 set -euo pipefail
 
-# ====================== 切换阿里云镜像源 ======================
-echo "🌐 [chezmoi] 切换阿里云镜像源..."
-sudo apt-get install -y -qq lsb-release
-UBUNTU_CODENAME=$(lsb_release -cs)
+# ====================== 选择 apt 镜像源 ======================
+echo "🌐 请选择 apt 镜像源："
+echo "  1) 阿里云        (mirrors.aliyun.com)"
+echo "  2) 清华大学      (mirrors.tuna.tsinghua.edu.cn)"
+echo "  3) 中科大        (mirrors.ustc.edu.cn)"
+echo "  4) 不设置        (保持系统默认源)"
+read -rp "请输入编号 [1-4，默认 4]：" MIRROR_CHOICE || MIRROR_CHOICE=4
+MIRROR_CHOICE=${MIRROR_CHOICE:-4}
 
-if [ "$UBUNTU_CODENAME" = "noble" ]; then
-    # Ubuntu 24.04 — deb822 格式
-    sudo tee /etc/apt/sources.list.d/ubuntu.sources > /dev/null <<SOURCES
+case "$MIRROR_CHOICE" in
+    1) MIRROR_URL="http://mirrors.aliyun.com/ubuntu/" ;;
+    2) MIRROR_URL="https://mirrors.tuna.tsinghua.edu.cn/ubuntu/" ;;
+    3) MIRROR_URL="https://mirrors.ustc.edu.cn/ubuntu/" ;;
+    *) MIRROR_URL="" ;;
+esac
+
+if [ -n "$MIRROR_URL" ]; then
+    echo "🌐 切换镜像源：$MIRROR_URL"
+    sudo apt-get install -y -qq lsb-release
+    UBUNTU_CODENAME=$(lsb_release -cs)
+
+    if [ "$UBUNTU_CODENAME" = "noble" ]; then
+        # Ubuntu 24.04 — deb822 格式
+        sudo tee /etc/apt/sources.list.d/ubuntu.sources > /dev/null <<SOURCES
 Types: deb
-URIs: http://mirrors.aliyun.com/ubuntu/
+URIs: $MIRROR_URL
 Suites: $UBUNTU_CODENAME $UBUNTU_CODENAME-updates $UBUNTU_CODENAME-backports
 Components: main restricted universe multiverse
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 
 Types: deb
-URIs: http://mirrors.aliyun.com/ubuntu/
+URIs: $MIRROR_URL
 Suites: $UBUNTU_CODENAME-security
 Components: main restricted universe multiverse
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 SOURCES
-else
-    # Ubuntu 22.04 及更早 — 传统格式
-    sudo tee /etc/apt/sources.list > /dev/null <<APT
-deb http://mirrors.aliyun.com/ubuntu/ $UBUNTU_CODENAME main restricted universe multiverse
-deb http://mirrors.aliyun.com/ubuntu/ $UBUNTU_CODENAME-security main restricted universe multiverse
-deb http://mirrors.aliyun.com/ubuntu/ $UBUNTU_CODENAME-updates main restricted universe multiverse
-deb http://mirrors.aliyun.com/ubuntu/ $UBUNTU_CODENAME-backports main restricted universe multiverse
+    else
+        # Ubuntu 22.04 及更早 — 传统格式
+        sudo tee /etc/apt/sources.list > /dev/null <<APT
+deb $MIRROR_URL $UBUNTU_CODENAME main restricted universe multiverse
+deb $MIRROR_URL $UBUNTU_CODENAME-security main restricted universe multiverse
+deb $MIRROR_URL $UBUNTU_CODENAME-updates main restricted universe multiverse
+deb $MIRROR_URL $UBUNTU_CODENAME-backports main restricted universe multiverse
 APT
+    fi
+    echo "✅ 已切换镜像源"
+else
+    echo "ℹ️ 保持系统默认源，不切换镜像"
 fi
-echo "✅ 已切换阿里云镜像源"
 
-echo "📦 [chezmoi] 安装基础系统包..."
+echo "📦 安装基础系统包..."
 
 sudo apt-get update -y
 
@@ -60,4 +79,4 @@ for pkg in "${PACKAGES[@]}"; do
     fi
 done
 
-echo "✅ [chezmoi] 基础系统包安装完成"
+echo "✅ 基础系统包安装完成"
