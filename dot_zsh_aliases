@@ -9,6 +9,7 @@ alias czs='chezmoi status'                 # chezmoi status：查看待应用变
 alias czu='chezmoi update'                 # chezmoi update：拉取远程并应用
 alias czcd='chezmoi cd'                    # chezmoi cd：进入仓库目录
 alias czg='chezmoi git'                    # chezmoi git：在仓库内执行 git
+alias czm='chezmoi managed --include=files' # czm：列出 chezmoi 管理的文件
 
 # =====================
 # 端口查进程

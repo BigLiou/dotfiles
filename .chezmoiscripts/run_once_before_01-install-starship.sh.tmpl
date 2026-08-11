@@ -4,6 +4,12 @@
 
 set -euo pipefail
 
+# 日志：终端实时显示 + 写入文件（XDG state 目录）
+LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/chezmoi/init/$(date +%Y%m%d)"
+LOG_FILE="$LOG_DIR/$(date +%H%M%S)-$(basename "$0" .sh).log"
+mkdir -p "$LOG_DIR"
+exec > >(tee "$LOG_FILE") 2>&1
+
 if command -v starship &>/dev/null; then
     echo "✅ starship 已安装"
     exit 0
