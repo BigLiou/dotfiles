@@ -10,17 +10,78 @@ LOG_FILE="$LOG_DIR/$(date +%H%M%S)-$(basename "$0" .sh).log"
 mkdir -p "$LOG_DIR"
 exec > >(tee "$LOG_FILE") 2>&1
 
+# ---------- 发行版守卫（apt 源行依赖 Ubuntu 的 VERSION_CODENAME 拼路径） ----------
+if ! grep -q '^ID=ubuntu$' /etc/os-release 2>/dev/null; then
+    echo "❌ 当前系统不是 Ubuntu，本脚本仅支持 Ubuntu（Docker apt 源路径依赖 VERSION_CODENAME）。"
+    echo "   若为 Debian 等系统，请把仓库路径改为 /debian 后手动配置。"
+    exit 1
+fi
+
+# ---------- 检测 WSL ----------
+IS_WSL=0
+if grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; then
+    IS_WSL=1
+fi
+
+# ---------- systemd 检测（WSL 未启用 systemd 时回退 service 管理） ----------
+SYSTEMD_ACTIVE=0
+if [ -d /run/systemd/system ]; then
+    SYSTEMD_ACTIVE=1
+fi
+
+# 统一启停 Docker：优先 systemctl，无 systemd（如旧版 WSL）时回退 service
+docker_ctl() {
+    local cmd="$1"
+    if [ "$SYSTEMD_ACTIVE" -eq 1 ]; then
+        sudo systemctl "$cmd" docker
+    elif [ "$cmd" = "enable" ]; then
+        echo "⚠️ 当前无 systemd，无法设置开机自启（可参考 WSL 下启用 systemd 或在 /etc/wsl.conf 配置后手动启动 dockerd）"
+    else
+        sudo service docker "$cmd"
+    fi
+}
+
+# ---------- 是否已安装 Docker / 是否来自 Docker Desktop 集成 ----------
+DOCKER_INSTALLED=0
+if command -v docker &>/dev/null; then
+    DOCKER_INSTALLED=1
+fi
+
+# 检测 docker 是否来自 Docker Desktop 的 WSL 集成（引擎在 Windows 侧，WSL 内配置无效）
+DOCKER_DESKTOP_INTEGRATED=0
+if [ "$DOCKER_INSTALLED" -eq 1 ]; then
+    DOCKER_REAL="$(readlink -f "$(command -v docker)" 2>/dev/null || true)"
+    case "$DOCKER_REAL" in
+        /mnt/c/*|/mnt/wsl/docker-desktop/*)
+            DOCKER_DESKTOP_INTEGRATED=1 ;;
+    esac
+fi
+
+# Docker Desktop 集成：引擎和配置都在 Windows 侧，WSL 内无需任何配置，先于安装提示拦截
+if [ "$DOCKER_DESKTOP_INTEGRATED" -eq 1 ]; then
+    echo "💡 当前 docker 来自 Docker Desktop 的 WSL 集成（引擎在 Windows 侧），跳过 WSL 内配置："
+    echo "   镜像加速、日志限制、BuildKit 请在 Windows 端 Docker Desktop 面板中设置。"
+    exit 0
+fi
+
 # ---------- 是否安装 Docker ----------
-read -rp "🐳 是否安装 Docker？[y/N，默认否]：" INSTALL_DOCKER || INSTALL_DOCKER=n
+if [ "$IS_WSL" -eq 1 ]; then
+    echo "🐳 检测到 WSL 环境：可通过 Docker Desktop 的 WSL 集成使用 Docker，无需在本发行版内另行安装。"
+    read -rp "🐳 是否仍需安装 Docker 到当前 WSL 发行版？[y/N，默认否]：" INSTALL_DOCKER || INSTALL_DOCKER=n
+else
+    read -rp "🐳 是否安装 Docker？[y/N，默认否]：" INSTALL_DOCKER || INSTALL_DOCKER=n
+fi
 INSTALL_DOCKER=${INSTALL_DOCKER:-n}
 case "$INSTALL_DOCKER" in
     y|Y|yes|YES|是) ;;
-    *) echo "⏭️ 跳过 Docker 安装"
-       exit 0 ;;
+    *)
+        if [ "$IS_WSL" -eq 1 ]; then
+            echo "💡 已跳过：可通过 Docker Desktop 启用 WSL 集成来使用 Docker"
+        else
+            echo "⏭️ 跳过 Docker 安装"
+        fi
+        exit 0 ;;
 esac
-
-DOCKER_INSTALLED=0
-command -v docker &>/dev/null && DOCKER_INSTALLED=1
 
 if [ "$DOCKER_INSTALLED" -eq 0 ]; then
     echo "🐳 请选择 Docker apt 源："
@@ -42,6 +103,7 @@ if [ "$DOCKER_INSTALLED" -eq 0 ]; then
     sudo apt-get install -y -qq ca-certificates curl
     sudo install -m 0755 -d /etc/apt/keyrings
     # 用非 sudo 的 curl 下载 keyring，让 proxy on 时能走代理；再 sudo 安装
+    rm -f /tmp/docker.asc
     curl -fsSL --connect-timeout 5 --max-time 30 "$DOCKER_REPO/gpg" -o /tmp/docker.asc
     sudo install -m 0644 /tmp/docker.asc /etc/apt/keyrings/docker.asc
     rm -f /tmp/docker.asc
@@ -80,14 +142,15 @@ fi
 if [ "$DOCKER_INSTALLED" -eq 0 ]; then
     # 全新安装：加组 + 启动（此时 daemon.json 已在位，直接生效）
     echo "⏳ 配置 docker 用户组并启动服务..."
-    sudo usermod -aG docker "$USER"
-    sudo systemctl enable --now docker
+    sudo usermod -aG docker "${USER:-$(id -un)}"
+    docker_ctl enable
+    docker_ctl start
     echo "✅ docker 安装完成（加入 docker 组需重新登录生效）"
 else
     # 已安装：确保开机自启 + 重启使 daemon.json 生效
     echo "⏳ 设置 docker 开机自启并重启..."
-    sudo systemctl enable docker
-    sudo systemctl restart docker
+    docker_ctl enable
+    docker_ctl restart
     echo "✅ docker 已重启，配置生效"
 fi
 echo "✅ Docker 配置完成"

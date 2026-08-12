@@ -17,7 +17,7 @@ fi
 
 echo "⏳ 安装 lazygit..."
 LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
-LAZYGIT_ARCH=$(uname -m | sed -e 's/aarch64/arm64/')
+LAZYGIT_ARCH=$(uname -m | sed -e 's/aarch64/arm64/' -e 's/x86_64/amd64/')
 curl -Lo /tmp/lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_linux_${LAZYGIT_ARCH}.tar.gz"
 tar -xzf /tmp/lazygit.tar.gz -C /tmp lazygit
 sudo install -m 755 /tmp/lazygit /usr/local/bin/lazygit
