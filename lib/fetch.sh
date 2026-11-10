@@ -100,10 +100,31 @@ gh_clone() {
 }
 
 # gh_latest_tag <owner/repo> —— 返回去掉前导 v 的 tag（失败时输出空）
+# 三级回退：直连 API → 镜像转发的 API → releases/latest 页面解析
 gh_latest_tag() {
-    local repo="$1" tag
-    tag=$(curl -fsSL --connect-timeout 8 --max-time 25 \
+    local repo="$1" tag m
+
+    tag=$(curl -fsSL --connect-timeout 8 --max-time 20 \
             "https://api.github.com/repos/$repo/releases/latest" 2>/dev/null \
         | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
-    printf '%s' "${tag#v}"
+
+    if [ -z "$tag" ]; then
+        for m in $GH_MIRRORS; do
+            tag=$(curl -fsSL --connect-timeout 8 --max-time 25 \
+                    "${m}https://api.github.com/repos/$repo/releases/latest" 2>/dev/null \
+                | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
+            [ -n "$tag" ] && break
+        done
+    fi
+
+    if [ -z "$tag" ]; then
+        for m in $GH_MIRRORS; do
+            tag=$(curl -fsSL --connect-timeout 8 --max-time 25 \
+                    "${m}https://github.com/$repo/releases/latest" 2>/dev/null \
+                | grep -o "releases/tag/v[0-9][^\"']*" | head -1 | sed "s|releases/tag/||")
+            [ -n "$tag" ] && break
+        done
+    fi
+
+    printf "%s" "${tag#v}"
 }
