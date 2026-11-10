@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # run_once_before_02-install-mise.sh.tmpl
 # 安装 mise（仅首次 apply 执行）
+# 主路径：GitHub Release 二进制（经 lib/fetch.sh 镜像回退）
+# 兜底：官方 mise.run 安装脚本
 
 set -euo pipefail
 
@@ -21,6 +23,39 @@ if [[ -x "$HOME/.local/bin/mise" ]]; then
 fi
 
 echo "⏳ 安装 mise..."
-curl -fsSL https://mise.run -o /tmp/mise_install.sh
-bash /tmp/mise_install.sh
-echo "✅ mise 安装完成"
+mkdir -p "$HOME/.local/bin"
+
+source "{{ .chezmoi.sourceDir }}/lib/fetch.sh"
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+case "$(uname -m)" in
+    x86_64)          MISE_ASSET="linux-x64" ;;
+    aarch64 | arm64) MISE_ASSET="linux-arm64" ;;
+    *)               echo "❌ 不支持的架构: $(uname -m)"; exit 1 ;;
+esac
+
+VER="$(gh_latest_tag "jdx/mise")"
+if [ -n "$VER" ]; then
+    echo "ℹ️  版本 $VER / $MISE_ASSET"
+    if gh_get "jdx/mise/releases/download/v${VER}/mise-v${VER}-${MISE_ASSET}" "$TMP/mise"; then
+        install -m 755 "$TMP/mise" "$HOME/.local/bin/mise"
+        "$HOME/.local/bin/mise" --version | head -1
+        echo "✅ mise 安装完成（GitHub Release）"
+        exit 0
+    fi
+    echo "⚠️ GitHub Release 下载失败，回退到 mise.run"
+fi
+
+# 兜底：官方脚本（带重试，且先校验内容再执行）
+curl -fsSL --retry 3 --retry-all-errors --retry-delay 2 \
+     --connect-timeout 10 --max-time 120 \
+     https://mise.run -o "$TMP/mise_install.sh" \
+    || { echo "❌ mise 下载失败（GitHub 与 mise.run 均不可用）"; exit 1; }
+
+head -n1 "$TMP/mise_install.sh" | grep -q '^#!' \
+    || { echo "❌ mise.run 返回内容不是安装脚本"; exit 1; }
+
+bash "$TMP/mise_install.sh"
+echo "✅ mise 安装完成（mise.run）"
