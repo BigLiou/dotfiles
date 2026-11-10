@@ -10,6 +10,11 @@ LOG_FILE="$LOG_DIR/$(date +%H%M%S)-$(basename "$0" .sh).log"
 mkdir -p "$LOG_DIR"
 exec > >(tee "$LOG_FILE") 2>&1
 
+# macOS：Docker 由 00 脚本的 brew（--cask docker-desktop）统一安装，此处直接跳过
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    exit 0
+fi
+
 # ---------- 发行版守卫（apt 源行依赖 Ubuntu 的 VERSION_CODENAME 拼路径） ----------
 if ! grep -q '^ID=ubuntu$' /etc/os-release 2>/dev/null; then
     echo "❌ 当前系统不是 Ubuntu，本脚本仅支持 Ubuntu（Docker apt 源路径依赖 VERSION_CODENAME）。"

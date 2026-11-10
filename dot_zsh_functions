@@ -56,6 +56,12 @@ dproxy() {
   local action="$1"
   local addr="${2:-192.168.78.66:7897}"
 
+  # macOS：无 systemd，Docker 用 Docker Desktop，代理在其面板配置
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    echo "ℹ️ macOS 上 Docker 使用 Docker Desktop，请在 Settings → Resources → Proxies 中配置代理"
+    return 0
+  fi
+
   case "$action" in
     on)
       sudo mkdir -p /etc/systemd/system/docker.service.d
@@ -83,6 +89,141 @@ EOF
       echo "用法: dproxy {on|off|status} [host:port]"
       ;;
   esac
+}
+
+# =====================
+# 切换软件镜像源
+# =====================
+
+# 交互式切换镜像源，用法：
+#   mirror                # 按系统自动选择：mac 切 brew，Ubuntu 切 apt
+# macOS：重写 ~/.config/homebrew/mirror.env（tuna/ustc/官方），.zshrc 会自动加载，当前终端立即生效
+# Ubuntu：重写 /etc/apt/sources.list.d/ubuntu.sources（先备份 .bak）并 apt-get update
+# 切换后自动自检：显示当前生效的镜像配置（brew config / apt 源）
+mirror() {
+  local m
+  local sys=$(uname -s)
+
+  if [[ "$sys" == "Darwin" ]]; then
+    echo "🍺 选择 Homebrew 镜像源："
+    echo "  1) 清华大学 TUNA   (推荐，国内直连快)"
+    echo "  2) 中科大 USTC     (备用)"
+    echo "  3) 官方 GitHub     (国外网络或代理环境)"
+    read "m?请输入编号 [1-3，默认 1]："
+    m=${m:-1}
+
+    # 非法输入默认切清华（避免打错反而落到需代理的官方源）
+    if ! [[ "$m" =~ ^[1-3]$ ]]; then
+      echo "输入无效，自动选用清华镜像"
+      m=1
+    fi
+
+    local env_file="$HOME/.config/homebrew/mirror.env"
+    mkdir -p "$HOME/.config/homebrew"
+
+    case "$m" in
+      1)
+        cat > "$env_file" <<'EOF'
+export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
+export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
+export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
+export HOMEBREW_NO_AUTO_UPDATE=1
+EOF
+        echo "✅ 已切换到清华大学 TUNA"
+        ;;
+      2)
+        cat > "$env_file" <<'EOF'
+export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.ustc.edu.cn/brew.git"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.ustc.edu.cn/homebrew-bottles"
+export HOMEBREW_API_DOMAIN="https://mirrors.ustc.edu.cn/homebrew-bottles/api"
+export HOMEBREW_NO_AUTO_UPDATE=1
+EOF
+        echo "✅ 已切换到中科大 USTC"
+        ;;
+      3)
+        rm -f "$env_file"
+        echo "✅ 已切回官方源（需代理）"
+        ;;
+    esac
+
+    # 当前终端立即生效（新开终端由 .zshrc 自动加载）
+    if [ -f "$env_file" ]; then
+      source "$env_file"
+    else
+      unset HOMEBREW_BREW_GIT_REMOTE HOMEBREW_CORE_GIT_REMOTE HOMEBREW_BOTTLE_DOMAIN HOMEBREW_API_DOMAIN 2>/dev/null
+    fi
+
+    # 自检：显示当前生效的镜像配置（apt 分支的对应物见下方）
+    if command -v brew &>/dev/null; then
+      echo ""
+      echo "📋 当前镜像配置："
+      brew config | grep -E "HOMEBREW_(BREW|CORE)_GIT_REMOTE|HOMEBREW_BOTTLE_DOMAIN|HOMEBREW_API_DOMAIN|HOMEBREW_NO_AUTO_UPDATE" || echo "（未设置镜像变量，使用官方源）"
+    else
+      echo "ℹ️ brew 未安装，跳过配置显示"
+    fi
+    return 0
+  fi
+
+  # ---------- Ubuntu：切换 apt 镜像源 ----------
+  if [[ "$sys" != "Linux" ]] || ! grep -qi ubuntu /etc/os-release 2>/dev/null; then
+    echo "❌ 当前系统既不是 macOS 也不是 Ubuntu，不支持换源"
+    return 1
+  fi
+
+  local MIRROR_URL UBUNTU_CODENAME source_path
+  echo "🌐 选择 apt 镜像源："
+  echo "  1) 阿里云        (mirrors.aliyun.com)"
+  echo "  2) 清华大学      (mirrors.tuna.tsinghua.edu.cn)"
+  echo "  3) 中科大        (mirrors.ustc.edu.cn)"
+  echo "  4) 官方          (archive.ubuntu.com，恢复默认)"
+  read "m?请输入编号 [1-4，默认 4]："
+  m=${m:-4}
+
+  # 非法输入恢复官方源
+  if ! [[ "$m" =~ ^[1-4]$ ]]; then
+    echo "输入错误，恢复官方源"
+    m=4
+  fi
+
+  case "$m" in
+    1) MIRROR_URL="http://mirrors.aliyun.com/ubuntu/" ;;
+    2) MIRROR_URL="https://mirrors.tuna.tsinghua.edu.cn/ubuntu/" ;;
+    3) MIRROR_URL="https://mirrors.ustc.edu.cn/ubuntu/" ;;
+    *) MIRROR_URL="http://archive.ubuntu.com/ubuntu/" ;;
+  esac
+
+  UBUNTU_CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+  source_path="/etc/apt/sources.list.d/ubuntu.sources"
+  # 自动备份原有源，换源失败可回滚
+  sudo cp "$source_path" "${source_path}.bak" 2>/dev/null || true
+
+  sudo tee "$source_path" > /dev/null <<SOURCES
+Types: deb
+URIs: $MIRROR_URL
+Suites: $UBUNTU_CODENAME $UBUNTU_CODENAME-updates $UBUNTU_CODENAME-backports
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: $MIRROR_URL
+Suites: $UBUNTU_CODENAME-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+SOURCES
+
+  echo "✅ 已写入 apt 源：$MIRROR_URL"
+  echo "正在更新软件缓存……"
+  if sudo apt-get update; then
+    echo "✅ 更新成功"
+    # 自检：显示当前生效的源（apt 版 brew config）
+    echo ""
+    echo "📋 当前 apt 源："
+    grep '^URIs:' "$source_path" | sort -u
+  else
+    echo "❌ 更新失败，原源已备份：${source_path}.bak"
+    return 1
+  fi
 }
 
 # =====================
@@ -172,13 +313,23 @@ findport() {
 # 前置依赖校验函数
 _check_deps() {
   local missing=()
-  command -v 7z >/dev/null 2>&1 || missing+=("p7zip-full")
+  if ! command -v 7z >/dev/null 2>&1; then
+    # Ubuntu 包名 p7zip-full，macOS(brew) 包名 p7zip
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+      missing+=("p7zip")
+    else
+      missing+=("p7zip-full")
+    fi
+  fi
   command -v unzip >/dev/null 2>&1 || missing+=("unzip")
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "⚠️ 缺少依赖包：${missing[*]}"
-    echo "请执行安装命令："
-    echo "sudo apt update && sudo apt install p7zip-full zip unzip"
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+      echo "请执行安装命令：brew install p7zip zip unzip"
+    else
+      echo "请执行安装命令：sudo apt update && sudo apt install p7zip-full zip unzip"
+    fi
     return 1
   fi
   return 0
@@ -286,11 +437,19 @@ extract() {
 #   tips -f       # 展示自定义函数（~/.zsh_functions）
 #   tips -h       # 显示用法帮助
 tips() {
-  # 依赖检测
+  # 依赖检测（Ubuntu 二进制名 batcat，macOS(brew) 是 bat）
+  local bat="batcat"
   if ! command -v batcat &>/dev/null; then
-    echo "⚠️ 缺少依赖：batcat"
-    echo "请执行安装命令：sudo apt install bat"
-    return 1
+    bat="bat"
+    if ! command -v bat &>/dev/null; then
+      echo "⚠️ 缺少依赖：bat"
+      if [[ "$(uname -s)" == "Darwin" ]]; then
+        echo "请执行安装命令：brew install bat"
+      else
+        echo "请执行安装命令：sudo apt install bat"
+      fi
+      return 1
+    fi
   fi
 
   case "$1" in
@@ -306,7 +465,7 @@ tips() {
     -f)
       echo "🛠️  自定义函数（~/.zsh_functions）"
       if [[ -f "$HOME/.zsh_functions" ]]; then
-        batcat --language=sh "$HOME/.zsh_functions"
+        "$bat" --language=sh "$HOME/.zsh_functions"
       else
         echo "（~/.zsh_functions 不存在）"
       fi
@@ -314,7 +473,7 @@ tips() {
     *)
       echo "📋 自定义别名（~/.zsh_aliases）"
       if [[ -f "$HOME/.zsh_aliases" ]]; then
-        batcat --language=sh "$HOME/.zsh_aliases"
+        "$bat" --language=sh "$HOME/.zsh_aliases"
       else
         echo "（~/.zsh_aliases 不存在）"
       fi

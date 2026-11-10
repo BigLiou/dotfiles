@@ -19,9 +19,18 @@ alias fp='findport'                        # findport：查端口占用（fp 808
 # =====================
 # 命令增强（bat / fd）
 # =====================
-alias bat='batcat'                         # bat：语法高亮的 cat（Ubuntu 包名 batcat）
-alias cat='batcat'                         # cat：默认走 batcat（长文件自动分页，q 退出）
-alias fd='fdfind'                          # fd：快速文件查找（Ubuntu 包名 fdfind）
+# Ubuntu 二进制名是 batcat/fdfind，macOS(brew) 是 bat/fd——按命令存在自动选
+if command -v batcat >/dev/null 2>&1; then
+    alias bat='batcat'                     # bat：语法高亮的 cat（Ubuntu 包名 batcat）
+    alias cat='batcat'                     # cat：默认走 batcat（长文件自动分页，q 退出）
+elif command -v bat >/dev/null 2>&1; then
+    alias cat='bat'                        # macOS：bat 直接可用
+fi
+if command -v fdfind >/dev/null 2>&1; then
+    alias fd='fdfind'                      # fd：快速文件查找（Ubuntu 包名 fdfind）
+elif command -v fd >/dev/null 2>&1; then
+    alias fd='fd'                          # macOS：fd 直接可用
+fi
 
 # =====================
 # eza 现代 ls

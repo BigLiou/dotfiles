@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # run_once_before_00-install-packages.sh.tmpl
-# 安装基础 apt 包（仅首次 apply 执行，Ubuntu 24.04+）
+# 安装基础系统包（仅首次 apply 执行）
+#   macOS：安装 Homebrew（可选国内镜像源）+ 用 brew 安装全部工具
+#   Ubuntu 24.04+：选择 apt 镜像源 + 安装基础 apt 包
 
 set -euo pipefail
 
@@ -9,6 +11,130 @@ LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/chezmoi/init/$(date +%Y%m%d)"
 LOG_FILE="$LOG_DIR/$(date +%H%M%S)-$(basename "$0" .sh).log"
 mkdir -p "$LOG_DIR"
 exec > >(tee "$LOG_FILE") 2>&1
+
+# ---------- OS 判定（注意：脚本带 set -e，grep 失败需用 if 包住，不能写 `grep && x`） ----------
+IS_DARWIN=0; IS_UBUNTU=0
+case "$(uname -s)" in
+    Darwin) IS_DARWIN=1 ;;
+    Linux)  if grep -q '^ID=ubuntu$' /etc/os-release 2>/dev/null; then IS_UBUNTU=1; fi ;;
+esac
+
+# ====================== macOS 分支：Homebrew 全部工具 ======================
+if [ "$IS_DARWIN" -eq 1 ]; then
+
+    # ---------- Xcode Command Line Tools（编译类工具依赖） ----------
+    if ! xcode-select -p &>/dev/null 2>&1; then
+        echo "⏳ 未检测到 Xcode Command Line Tools，正在触发安装..."
+        xcode-select --install 2>/dev/null || true
+        echo "   请在弹窗中点击“安装”，完成后脚本自动继续"
+        echo "   （若弹窗未出现，请手动运行：xcode-select --install）"
+        until xcode-select -p &>/dev/null 2>&1; do
+            sleep 5
+        done
+        echo "✅ Xcode CLT 已就绪"
+    fi
+
+    # ---------- 选择 Homebrew 镜像源（交互式） ----------
+    echo "🍺 请选择 Homebrew 安装源："
+    echo "  1) 清华大学 TUNA   (推荐，国内直连快)"
+    echo "  2) 中科大 USTC     (备用)"
+    echo "  3) 官方 GitHub     (国外网络或代理环境)"
+    read -rp "请输入编号 [1-3，默认 1]：" BREW_MIRROR || BREW_MIRROR=1
+    BREW_MIRROR=${BREW_MIRROR:-1}
+
+    # 按所选镜像导出变量：无论 brew 是否已装，本次运行都要走镜像（避免“选了 TUNA 却用官方源”）
+    case "$BREW_MIRROR" in
+        1)
+            export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
+            export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
+            export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
+            export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
+            export HOMEBREW_NO_AUTO_UPDATE=1
+            ;;
+        2)
+            export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.ustc.edu.cn/brew.git"
+            export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.ustc.edu.cn/homebrew-bottles"
+            export HOMEBREW_API_DOMAIN="https://mirrors.ustc.edu.cn/homebrew-bottles/api"
+            export HOMEBREW_NO_AUTO_UPDATE=1
+            ;;
+        *)
+            echo "ℹ️ 使用官方源（需代理）..."
+            unset HOMEBREW_BREW_GIT_REMOTE HOMEBREW_CORE_GIT_REMOTE HOMEBREW_BOTTLE_DOMAIN HOMEBREW_API_DOMAIN 2>/dev/null || true
+            ;;
+    esac
+
+    # ---------- 安装 Homebrew（未装时才装） ----------
+    if ! command -v brew &>/dev/null; then
+        echo "⏳ 安装 Homebrew..."
+        case "$BREW_MIRROR" in
+            1)
+                # 清华：clone 镜像的 install 仓库，绕开 raw.githubusercontent.com
+                git clone --depth=1 https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install.git /tmp/brew-install
+                /bin/bash /tmp/brew-install/install.sh
+                rm -rf /tmp/brew-install
+                ;;
+            2)
+                # 中科大（注意：USTC 已不再镜像 homebrew-core，故不设 CORE_GIT_REMOTE）
+                /bin/bash -c "$(curl -fsSL https://mirrors.ustc.edu.cn/misc/brew-install.sh)"
+                ;;
+            *)
+                /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+                ;;
+        esac
+        echo "✅ Homebrew 安装完成"
+    fi
+
+    # 安装后把 brew 加入当前 PATH（Apple Silicon 在 /opt/homebrew/bin，默认不在 PATH）
+    if [[ -d /opt/homebrew/bin ]]; then
+        export PATH="/opt/homebrew/bin:$PATH"
+    fi
+
+    # ---------- 持久化镜像环境变量（选 1/2 时写入，~/.zshrc 会自动加载） ----------
+    if [ "$BREW_MIRROR" -eq 1 ] || [ "$BREW_MIRROR" -eq 2 ]; then
+        mkdir -p "$HOME/.config/homebrew"
+        if [ "$BREW_MIRROR" -eq 1 ]; then
+            cat > "$HOME/.config/homebrew/mirror.env" <<'EOF'
+export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
+export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
+export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
+export HOMEBREW_NO_AUTO_UPDATE=1
+EOF
+        else
+            cat > "$HOME/.config/homebrew/mirror.env" <<'EOF'
+export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.ustc.edu.cn/brew.git"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.ustc.edu.cn/homebrew-bottles"
+export HOMEBREW_API_DOMAIN="https://mirrors.ustc.edu.cn/homebrew-bottles/api"
+export HOMEBREW_NO_AUTO_UPDATE=1
+EOF
+        fi
+        echo "ℹ️ 镜像环境变量已写入 ~/.config/homebrew/mirror.env（.zshrc 会自动加载）"
+    else
+        # 选官方源：清理可能残留的旧镜像配置
+        rm -f "$HOME/.config/homebrew/mirror.env"
+    fi
+
+    # ---------- brew 安装全部工具 ----------    # zsh 不装：macOS 系统自带且默认就是 zsh
+    BREW_PACKAGES=(curl wget git zip unzip p7zip tmux fzf ripgrep eza zoxide btop duf ncdu bat fd tcpdump lsof starship mise yazi lazygit lazydocker)
+    echo "⏳ brew 安装系统工具（${#BREW_PACKAGES[@]} 个）："
+    echo "   ${BREW_PACKAGES[*]}"
+    brew install "${BREW_PACKAGES[@]}"
+    echo "⏳ 安装 Docker Desktop（引擎 + 客户端）..."
+    if [ -d /Applications/Docker.app ]; then
+        echo "ℹ️ /Applications/Docker.app 已存在，跳过 cask 安装"
+    else
+        brew install --cask docker-desktop
+    fi
+
+    echo "✅ macOS 软件安装完成"
+    exit 0
+fi
+
+# ====================== Linux 分支：仅支持 Ubuntu ======================
+if [ "$IS_UBUNTU" -eq 0 ]; then
+    echo "❌ 当前系统既不是 macOS 也不是 Ubuntu，本脚本仅支持这两者。"
+    exit 1
+fi
 
 # ====================== 选择 apt 镜像源 ======================
 echo "🌐 请选择 apt 镜像源："
