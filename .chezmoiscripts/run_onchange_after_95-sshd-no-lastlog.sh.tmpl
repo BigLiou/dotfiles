@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# run_onchange_after_95-sshd-no-lastlog.sh.tmpl
+# 关闭 sshd 登录时打印的 "Last login: ... from ..." 提示
+# 通过 sshd_config.d 片段实现，不改主配置；先 sshd -t 校验再 reload
+
+set -euo pipefail
+
+LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/chezmoi/init/$(date +%Y%m%d)"
+LOG_FILE="$LOG_DIR/$(date +%H%M%S)-$(basename "$0" .sh).log"
+mkdir -p "$LOG_DIR"
+exec > >(tee "$LOG_FILE") 2>&1
+
+if [[ "$(uname -s)" != "Linux" ]]; then
+    exit 0
+fi
+
+CONF=/etc/ssh/sshd_config.d/99-dotfiles-nolastlog.conf
+
+if ! grep -q "^Include[[:space:]]*/etc/ssh/sshd_config.d" /etc/ssh/sshd_config 2>/dev/null; then
+    echo "⚠️ sshd_config 未 Include 子目录，跳过（可手动在 sshd_config 里加 PrintLastLog no）"
+    exit 0
+fi
+
+if [[ -f "$CONF" ]] && grep -qx "PrintLastLog no" "$CONF"; then
+    echo "✅ Last login 提示已是关闭状态"
+    exit 0
+fi
+
+echo "⏳ 写入 $CONF ..."
+printf 'PrintLastLog no\n' | sudo tee "$CONF" >/dev/null
+
+if ! sudo sshd -t; then
+    echo "❌ sshd 配置校验失败，回滚该片段"
+    sudo rm -f "$CONF"
+    exit 1
+fi
+
+sudo systemctl reload ssh
+echo "✅ 已关闭 Last login 提示（sshd 已 reload，现有连接不受影响）"

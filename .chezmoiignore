@@ -1,0 +1,9 @@
+# 仓库内部资源，不属于家目录目标（否则会被复制成 ~/lib、~/docs、~/scripts）
+lib/
+docs/
+scripts/
+
+# macOS 不管理 motd 入口清单
+{{ if eq .chezmoi.os "darwin" -}}
+.motd-links
+{{- end }}
