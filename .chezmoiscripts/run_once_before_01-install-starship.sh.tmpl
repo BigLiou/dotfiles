@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # run_once_before_01-install-starship.sh.tmpl
 # 安装 starship（仅首次 apply 执行）
+# 通过 lib/fetch.sh 取 release 包：直连优先，失败自动走镜像
 
 set -euo pipefail
 
@@ -10,16 +11,44 @@ LOG_FILE="$LOG_DIR/$(date +%H%M%S)-$(basename "$0" .sh).log"
 mkdir -p "$LOG_DIR"
 exec > >(tee "$LOG_FILE") 2>&1
 
-# macOS：软件统一由 00 脚本用 Homebrew 安装，此处直接跳过
+# macOS：软件统一由 00 脚本用 Homebrew 安装
 if [[ "$(uname -s)" == "Darwin" ]]; then
     exit 0
 fi
 
 if command -v starship &>/dev/null; then
-    echo "✅ starship 已安装"
+    echo "✅ starship 已安装（$(command -v starship)）"
     exit 0
 fi
 
+source "{{ .chezmoi.sourceDir }}/lib/fetch.sh"
+
 echo "⏳ 安装 starship..."
-curl -sS https://starship.rs/install.sh | sh -s -- -y
-echo "✅ starship 安装完成"
+
+case "$(uname -m)" in
+    x86_64)          TARGET="x86_64-unknown-linux-musl" ;;
+    aarch64 | arm64) TARGET="aarch64-unknown-linux-musl" ;;
+    *)               echo "❌ 不支持的架构: $(uname -m)"; exit 1 ;;
+esac
+
+VER="$(gh_latest_tag "starship/starship")"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+if [ -n "$VER" ]; then
+    gh_get "starship/starship/releases/download/v${VER}/starship-${TARGET}.tar.gz" "$TMP/starship.tgz" || exit 1
+else
+    # 版本号取不到时退回 latest 通道（该资产名不含版本号，可以直接用）
+    gh_get "starship/starship/releases/latest/download/starship-${TARGET}.tar.gz" "$TMP/starship.tgz" || exit 1
+fi
+
+# 完整性校验：必须是 gzip，且解出来确实是 starship
+if ! tar -tzf "$TMP/starship.tgz" >/dev/null 2>&1; then
+    echo "❌ 下载内容不是有效的 tar.gz（可能是镜像错误页）"
+    exit 1
+fi
+tar -xzf "$TMP/starship.tgz" -C "$TMP" starship
+
+install -m 755 "$TMP/starship" "$HOME/.local/bin/starship"
+"$HOME/.local/bin/starship" --version
+echo "✅ starship 安装完成 -> $HOME/.local/bin/starship"

@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
 # run_once_before_06-install-lazygit.sh.tmpl
 # 安装 lazygit（GitHub release 二进制，仅首次 apply 执行）
-# Linux(Ubuntu)：直接下 GitHub Release 包；macOS 由 00 脚本的 Homebrew 分支统一安装
-# 修复：
-#   1. lazygit 资产用 Go 原始架构名 x86_64/arm64，不再错误映射成 amd64
-#   2. curl 全部加 -f + 重试，404 不再被当成"下载成功"
-#   3. 版本号取不到时从 latest 重定向兜底，并做强校验
-#   4. 装到 ~/.local/bin，不需要 sudo
+# macOS 由 00 脚本的 Homebrew 分支统一安装；Linux 走 lib/fetch.sh 下载
 
 set -euo pipefail
 
@@ -26,42 +21,38 @@ if command -v lazygit &>/dev/null; then
     exit 0
 fi
 
+source "{{ .chezmoi.sourceDir }}/lib/fetch.sh"
+
 echo "⏳ 安装 lazygit..."
 
+# lazygit 的 release 资产使用 Go 原始架构名：x86_64 / arm64 / armv7 / 32-bit
 case "$(uname -m)" in
-    x86_64)        LG_ARCH="x86_64" ;;
+    x86_64)          LG_ARCH="x86_64" ;;
     aarch64 | arm64) LG_ARCH="arm64" ;;
-    armv7l)        LG_ARCH="armv7" ;;
-    i686 | i386)   LG_ARCH="32-bit" ;;
-    *) echo "❌ 不支持的架构: $(uname -m)"; exit 1 ;;
+    armv7l)          LG_ARCH="armv7" ;;
+    i686 | i386)     LG_ARCH="32-bit" ;;
+    *)               echo "❌ 不支持的架构: $(uname -m)"; exit 1 ;;
 esac
 
-CURL_OPTS=(-fsSL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 300)
+VER="$(gh_latest_tag "jesseduffield/lazygit")"
+if [ -z "$VER" ]; then
+    echo "❌ 无法获取 lazygit 版本号（api.github.com 不可用）"
+    exit 1
+fi
+echo "ℹ️  版本 $VER / 架构 $LG_ARCH"
 
-# 版本号：GitHub API -> 失败则从 latest 重定向兜底
-LAZYGIT_VERSION=$(curl "${CURL_OPTS[@]}" --max-time 25 \
-    https://api.github.com/repos/jesseduffield/lazygit/releases/latest 2>/dev/null \
-    | grep -Po '"tag_name": *"v\K[^"]*' || true)
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 
-if [ -z "$LAZYGIT_VERSION" ]; then
-    echo "⚠️  API 取版本失败，回退到 latest 重定向解析"
-    LAZYGIT_VERSION=$(curl "${CURL_OPTS[@]}" --max-time 60 -o /dev/null -w '%{url_effective}' \
-        https://github.com/jesseduffield/lazygit/releases/latest 2>/dev/null \
-        | sed -E 's#.*/tag/v?##' || true)
+gh_get "jesseduffield/lazygit/releases/download/v${VER}/lazygit_${VER}_linux_${LG_ARCH}.tar.gz" \
+       "$TMP/lazygit.tar.gz" || exit 1
+
+if ! tar -tzf "$TMP/lazygit.tar.gz" >/dev/null 2>&1; then
+    echo "❌ 下载内容不是有效的 tar.gz（可能是镜像错误页）"
+    exit 1
 fi
 
-: "${LAZYGIT_VERSION:?无法确定 lazygit 版本号，放弃安装}"
-echo "ℹ️  版本 $LAZYGIT_VERSION / 架构 $LG_ARCH"
-
-TMP_DIR=$(mktemp -d)
-trap 'rm -rf "$TMP_DIR"' EXIT
-
-URL="https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_linux_${LG_ARCH}.tar.gz"
-echo "ℹ️  $URL"
-
-curl "${CURL_OPTS[@]}" -o "$TMP_DIR/lazygit.tar.gz" "$URL"
-tar -xzf "$TMP_DIR/lazygit.tar.gz" -C "$TMP_DIR" lazygit
-install -m 755 "$TMP_DIR/lazygit" "$HOME/.local/bin/lazygit"
-
-"$HOME/.local/bin/lazygit" --version
+tar -xzf "$TMP/lazygit.tar.gz" -C "$TMP" lazygit
+install -m 755 "$TMP/lazygit" "$HOME/.local/bin/lazygit"
+"$HOME/.local/bin/lazygit" --version | head -1
 echo "✅ lazygit 安装完成 -> $HOME/.local/bin/lazygit"

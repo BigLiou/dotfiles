@@ -192,7 +192,7 @@ lab 'CPU型号'; printf '%s\n' "$CPU_MODEL"
 if [ ${#GPU_MODELS[@]} -gt 0 ]; then
 	lab 'GPU型号'; printf '%s\n' "${GPU_MODELS[0]}"
 	for _g in "${GPU_MODELS[@]:1}"; do
-		printf '%*s%s\n' "$COL" '' "$_g"
+		printf '%*s%s\n' $((COL + 2)) '' "$_g"
 	done
 fi
 lab 'IPv4'; printf '%s\n' "${IPV4:--}"

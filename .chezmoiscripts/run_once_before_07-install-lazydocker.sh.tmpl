@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # run_once_before_07-install-lazydocker.sh.tmpl
-# 安装 lazydocker（官方安装脚本，仅首次 apply 执行，Ubuntu）
+# 安装 lazydocker（GitHub release 二进制，仅首次 apply 执行）
+# 不再使用官方 curl | bash 脚本：内层仍会直连 GitHub，在受限网络下会失败
+# macOS 由 00 脚本的 Homebrew 分支统一安装
 
 set -euo pipefail
 
@@ -16,10 +18,42 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
 fi
 
 if command -v lazydocker &>/dev/null; then
-    echo "✅ lazydocker 已安装"
+    echo "✅ lazydocker 已安装（$(command -v lazydocker)）"
     exit 0
 fi
 
+source "{{ .chezmoi.sourceDir }}/lib/fetch.sh"
+
 echo "⏳ 安装 lazydocker..."
-curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
-echo "✅ lazydocker 安装完成"
+
+# lazydocker 资产名：lazydocker_<ver>_Linux_<arch>.tar.gz
+case "$(uname -m)" in
+    x86_64)          LD_ARCH="x86_64" ;;
+    aarch64 | arm64) LD_ARCH="arm64" ;;
+    armv7l)          LD_ARCH="armv7" ;;
+    i686 | i386)     LD_ARCH="i386" ;;
+    *)               echo "❌ 不支持的架构: $(uname -m)"; exit 1 ;;
+esac
+
+VER="$(gh_latest_tag "jesseduffield/lazydocker")"
+if [ -z "$VER" ]; then
+    echo "❌ 无法获取 lazydocker 版本号（api.github.com 不可用）"
+    exit 1
+fi
+echo "ℹ️  版本 $VER / 架构 $LD_ARCH"
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+gh_get "jesseduffield/lazydocker/releases/download/v${VER}/lazydocker_${VER}_Linux_${LD_ARCH}.tar.gz" \
+       "$TMP/lazydocker.tar.gz" || exit 1
+
+if ! tar -tzf "$TMP/lazydocker.tar.gz" >/dev/null 2>&1; then
+    echo "❌ 下载内容不是有效的 tar.gz（可能是镜像错误页）"
+    exit 1
+fi
+
+tar -xzf "$TMP/lazydocker.tar.gz" -C "$TMP" lazydocker
+install -m 755 "$TMP/lazydocker" "$HOME/.local/bin/lazydocker"
+"$HOME/.local/bin/lazydocker" --version | head -2
+echo "✅ lazydocker 安装完成 -> $HOME/.local/bin/lazydocker"

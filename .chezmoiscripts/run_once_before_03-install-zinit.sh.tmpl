@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # run_once_before_03-install-zinit.sh.tmpl
 # 安装 zinit 插件管理器（仅首次 apply 执行）
+# 通过 lib/fetch.sh 克隆：直连优先，失败自动走镜像
 
 set -euo pipefail
 
@@ -10,6 +11,11 @@ LOG_FILE="$LOG_DIR/$(date +%H%M%S)-$(basename "$0" .sh).log"
 mkdir -p "$LOG_DIR"
 exec > >(tee "$LOG_FILE") 2>&1
 
+# macOS：软件统一由 00 脚本用 Homebrew 安装
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    exit 0
+fi
+
 ZINIT_HOME="$HOME/.local/share/zinit"
 
 if [[ -f "$ZINIT_HOME/zinit.zsh" ]]; then
@@ -17,6 +23,15 @@ if [[ -f "$ZINIT_HOME/zinit.zsh" ]]; then
     exit 0
 fi
 
+source "{{ .chezmoi.sourceDir }}/lib/fetch.sh"
+
 echo "⏳ 安装 zinit..."
-git clone https://github.com/zdharma-continuum/zinit "$ZINIT_HOME"
+mkdir -p "$(dirname "$ZINIT_HOME")"
+
+if ! gh_clone "zdharma-continuum/zinit" "$ZINIT_HOME"; then
+    echo "❌ zinit 克隆失败（直连与镜像均不可用）"
+    exit 1
+fi
+
+[[ -f "$ZINIT_HOME/zinit.zsh" ]] || { echo "❌ 克隆结果异常，缺少 zinit.zsh"; exit 1; }
 echo "✅ zinit 安装完成"
