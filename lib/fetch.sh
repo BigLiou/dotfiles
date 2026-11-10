@@ -80,7 +80,7 @@ gh_clone() {
     local opts=(-c http.lowSpeedLimit=1024 -c http.lowSpeedTime=20 --depth 1)
 
     if ! _gh_direct_blocked; then
-        if git "${opts[@]}" clone "https://github.com/$repo" "$dir" 2>/dev/null; then
+        if git clone "${opts[@]}" "https://github.com/$repo" "$dir" 2>/dev/null; then
             _gh_mark direct
             return 0
         fi
@@ -89,7 +89,7 @@ gh_clone() {
     fi
 
     for m in $GH_MIRRORS; do
-        if git "${opts[@]}" clone "${m}https://github.com/$repo" "$dir" 2>/dev/null; then
+        if git clone "${opts[@]}" "${m}https://github.com/$repo" "$dir" 2>/dev/null; then
             return 0
         fi
         rm -rf "$dir"

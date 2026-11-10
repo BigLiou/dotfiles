@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # run_onchange_after_90-motd.sh.tmpl
 # 安装登录面板到 /etc/update-motd.d/20-custom-status，并关闭系统默认 motd 项
-# run_onchange：脚本内容或 lib/motd/20-custom-status 变化时才重新执行
+#
+# run_onchange 只跟踪「脚本自身内容」的哈希，不跟踪它引用的外部文件。
+# 下面这行把 lib/motd/20-custom-status 的哈希注入脚本，于是面板内容一改，
+# 整个脚本内容就变，chezmoi 便会重新执行安装。
+# payload-sha256: {{ include "lib/motd/20-custom-status" | sha256sum }}
 
 set -euo pipefail
 
