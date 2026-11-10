@@ -12,6 +12,11 @@ LOG_FILE="$LOG_DIR/$(date +%H%M%S)-$(basename "$0" .sh).log"
 mkdir -p "$LOG_DIR"
 exec > >(tee "$LOG_FILE") 2>&1
 
+# 非交互执行（chezmoi apply / CI）时，stdin 不是 tty：改为 /dev/null，
+# 让后面的 read 立即 EOF 并走各处的默认值，避免卡在交互提示上
+[ -t 0 ] || exec </dev/null
+
+
 # ---------- OS 判定（注意：脚本带 set -e，grep 失败需用 if 包住，不能写 `grep && x`） ----------
 IS_DARWIN=0; IS_UBUNTU=0
 case "$(uname -s)" in
