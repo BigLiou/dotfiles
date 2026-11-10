@@ -24,6 +24,7 @@ fi
 source "{{ .chezmoi.sourceDir }}/lib/fetch.sh"
 
 echo "⏳ 安装 lazygit..."
+mkdir -p "$HOME/.local/bin"
 
 # lazygit 的 release 资产使用 Go 原始架构名：x86_64 / arm64 / armv7 / 32-bit
 case "$(uname -m)" in

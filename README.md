@@ -22,6 +22,21 @@
 | `mise.toml` | 语言运行时版本管理（node, python, java, maven） |
 | `starship.toml` | Starship prompt 配置 |
 
+## 仓库镜像
+
+| 位置 | 地址 | 说明 |
+|---|---|---|
+| 主仓库 | https://github.com/BigLiou/dotfiles | 所有改动提交到这里 |
+| 镜像 | https://gitee.com/bigliou/dotfiles | 自动同步，GitHub 不可达时使用 |
+
+GitHub 连不上时，用 Gitee 初始化：
+
+```bash
+chezmoi init --apply https://gitee.com/bigliou/dotfiles.git
+```
+
+> 镜像仓库若为私有，需要先配置 Gitee 凭据；匿名访问会返回 401。
+
 ## 新机器初始化
 
 ### 方式一：分步执行

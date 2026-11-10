@@ -24,6 +24,7 @@ fi
 source "{{ .chezmoi.sourceDir }}/lib/fetch.sh"
 
 echo "⏳ 安装 starship..."
+mkdir -p "$HOME/.local/bin"
 
 case "$(uname -m)" in
     x86_64)          TARGET="x86_64-unknown-linux-musl" ;;

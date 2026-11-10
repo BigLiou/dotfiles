@@ -25,6 +25,7 @@ fi
 source "{{ .chezmoi.sourceDir }}/lib/fetch.sh"
 
 echo "⏳ 安装 lazydocker..."
+mkdir -p "$HOME/.local/bin"
 
 # lazydocker 资产名：lazydocker_<ver>_Linux_<arch>.tar.gz
 case "$(uname -m)" in
