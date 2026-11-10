@@ -16,5 +16,22 @@ if command -v claude &>/dev/null || [[ -x "$HOME/.local/bin/claude" ]]; then
 fi
 
 echo "⏳ 安装 claude..."
-curl -fsSL https://claude.ai/install.sh | bash
+TMP_SH="$(mktemp)"
+trap 'rm -f "$TMP_SH"' EXIT
+
+# claude.ai 在部分区域会返回 200 + HTML（"App unavailable in region"），
+# 直接 pipe 给 bash 会执行一堆 HTML 垃圾并让整个 apply 中断。
+if ! curl -fsSL --retry 3 --connect-timeout 10 --max-time 120 -o "$TMP_SH" https://claude.ai/install.sh; then
+    echo "⚠️ 无法下载 claude 安装脚本（网络受限），跳过"
+    exit 0
+fi
+
+if ! head -n1 "$TMP_SH" | grep -q '^#!'; then
+    echo "⚠️ 返回内容不是安装脚本（可能是区域限制页面），跳过 claude 安装"
+    echo "   前 120 字节：$(head -c 120 "$TMP_SH" | tr -d '\0')"
+    exit 0
+fi
+
+bash "$TMP_SH"
+
 echo "✅ claude 安装完成"
