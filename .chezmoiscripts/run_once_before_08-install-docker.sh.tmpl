@@ -10,9 +10,12 @@ LOG_FILE="$LOG_DIR/$(date +%H%M%S)-$(basename "$0" .sh).log"
 mkdir -p "$LOG_DIR"
 exec > >(tee "$LOG_FILE") 2>&1
 
-# 非交互执行（chezmoi apply / CI）时，stdin 不是 tty：改为 /dev/null，
-# 让后面的 read 立即 EOF 并走各处的默认值，避免卡在交互提示上
-[ -t 0 ] || exec </dev/null
+# 非交互模式：显式设置 DOTFILES_NONINTERACTIVE=1，或 stdin 不是 tty（CI/管道）
+# 此时把 stdin 指向 /dev/null，让后面的 read 立即 EOF 并走各处默认值，避免卡住。
+# 注意：sudo 读密码用的是 /dev/tty，不受这里影响，所以 pty 下 sudo 仍然正常。
+if [ -n "${DOTFILES_NONINTERACTIVE:-}" ] || [ ! -t 0 ]; then
+    exec </dev/null
+fi
 
 
 # macOS：Docker 由 00 脚本的 brew（--cask docker-desktop）统一安装，此处直接跳过
