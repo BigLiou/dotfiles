@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# run_onchange_after_90-motd.sh.tmpl
+# 安装登录面板到 /etc/update-motd.d/20-custom-status，并关闭系统默认 motd 项
+# run_onchange：脚本内容或 lib/motd/20-custom-status 变化时才重新执行
+
+set -euo pipefail
+
+LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/chezmoi/init/$(date +%Y%m%d)"
+LOG_FILE="$LOG_DIR/$(date +%H%M%S)-$(basename "$0" .sh).log"
+mkdir -p "$LOG_DIR"
+exec > >(tee "$LOG_FILE") 2>&1
+
+if [[ "$(uname -s)" != "Linux" ]]; then
+    echo "ℹ️ 非 Linux 系统，跳过 motd 安装"
+    exit 0
+fi
+
+SRC="{{ .chezmoi.sourceDir }}/lib/motd/20-custom-status"
+DST="/etc/update-motd.d/20-custom-status"
+
+if [[ ! -f "$SRC" ]]; then
+    echo "⚠️ 未找到 motd 源文件：$SRC（跳过）"
+    exit 0
+fi
+
+echo "⏳ 安装 motd 面板..."
+sudo install -m 755 "$SRC" "$DST"
+
+echo "⏳ 关闭系统默认 motd 项..."
+for f in /etc/update-motd.d/*; do
+    base="$(basename "$f")"
+    case "$base" in
+        20-custom-status|*.disabled) continue ;;
+    esac
+    sudo mv "$f" "$f.disabled"
+done
+
+echo "✅ motd 安装完成（预览：run-parts /etc/update-motd.d）"

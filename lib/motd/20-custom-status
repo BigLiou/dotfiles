@@ -1,0 +1,329 @@
+#!/bin/bash
+# ---------------------------------------------------------------------------
+# motd-panel.sh —— 登录面板（部署为 /etc/update-motd.d/20-custom-status）
+#
+#   本次登录 / 上次登录 / 负载 / 内存 / 交换 / 磁盘 / 进程
+#   容器状态 / 内存大户 / 服务单元 / 可更新包 / 告警 / 服务入口
+#
+#   预览：      run-parts /etc/update-motd.d
+#   不要颜色：  NO_COLOR=1 ...
+#   入口清单：  /etc/motd-links  （名称|地址|备注）
+# ---------------------------------------------------------------------------
+
+# 入口清单：优先读家目录里你自己能改的那份（登录时脚本以 root 跑，HOME=/root，
+# 所以会落到 /home/bigliou/.motd-links），没有才退回 /etc/motd-links
+if [ -n "${MOTD_LINKS:-}" ]; then
+	LINKS=$MOTD_LINKS
+else
+	LINKS=''
+	U=$(who am i 2>/dev/null | awk "{print \$1}")
+	[ -z "$U" ] && U=$(logname 2>/dev/null)
+	[ -z "$U" ] && U=$(id -un)
+	for p in "${HOME:-/root}/.motd-links" "/home/$U/.motd-links" /home/*/.motd-links /etc/motd-links; do
+		[ -r "$p" ] && { LINKS=$p; break; }
+	done
+	LINKS=${LINKS:-/etc/motd-links}
+fi
+
+RED=$'\033[31m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'
+BLUE=$'\033[34m'; CYAN=$'\033[36m'; DIM=$'\033[2m'; BOLD=$'\033[1m'; RESET=$'\033[0m'
+if [ -n "${NO_COLOR:-}" ]; then
+	RED=''; GREEN=''; YELLOW=''; BLUE=''; CYAN=''; DIM=''; BOLD=''; RESET=''
+fi
+
+[ -r /etc/os-release ] && . /etc/os-release
+HOST=$(uname -n); KERNEL=$(uname -r); ARCH=$(uname -m)
+COL=12          # 所有值统一从第 12 列开始
+
+# ---------------------------------------------------------------- 小工具
+lab() {		# 打印标签并补齐到第 COL 列（中文按 2 列算）
+	local b c w
+	b=$(printf '%s' "$1" | wc -c)
+	c=$(printf '%s' "$1" | LC_ALL=C.UTF-8 wc -m)
+	w=$(( (b + c) / 2 ))
+	printf '  %s%s%s%*s' "$DIM" "$1" "$RESET" $(( COL - w )) ''
+}
+
+pc() {		# 按百分比挑颜色
+	if [ "$1" -ge 85 ]; then printf '%s' "$RED"
+	elif [ "$1" -ge 70 ]; then printf '%s' "$YELLOW"
+	else printf '%s' "$GREEN"; fi
+}
+
+bar() {		# bar <百分比> <宽度>
+	local p=$1 w=${2:-16} f i=0
+	[ "$p" -gt 100 ] && p=100
+	f=$(( p * w / 100 ))
+	while [ "$i" -lt "$f" ]; do printf '█'; i=$((i + 1)); done
+	while [ "$i" -lt "$w" ]; do printf '░'; i=$((i + 1)); done
+}
+
+human() {	# KB -> 定宽 5 字符，如 "  37G" / " 7.9G" / " 243G"（四舍五入到 0.1G）
+	local t=$(( (${1:-0} * 10 + 524288) / 1048576 ))
+	if [ "$t" -ge 100 ]; then printf '%4dG' $(( t / 10 ))
+	else printf '%2d.%dG' $(( t / 10 )) $(( t % 10 )); fi
+}
+
+res_row() {	# res_row <标签> <百分比> <已用KB> <总量KB>
+	lab "$1"
+	local c; c=$(pc "$2")
+	printf '%s' "$c"; bar "$2" 16; printf '%s' "$RESET"
+	printf '   %s / %s   %s%3d%%%s' "$(human "$3")" "$(human "$4")" "$c" "$2" "$RESET"
+	[ "$2" -ge 85 ] && printf '   %s[!]%s' "$RED" "$RESET"
+	printf '\n'
+}
+
+uptime_h() {
+	local s; s=$(cut -d. -f1 /proc/uptime)
+	printf '%dd %dh%02dm' $(( s / 86400 )) $(( s % 86400 / 3600 )) $(( s % 3600 / 60 ))
+}
+
+last_info() {	# 上一次已结束的会话
+	local ln mon day t host when
+	ln=$(last -n 8 -w 2>/dev/null | awk 'NF >= 7 && $1 != "reboot" && !/still logged in/' | head -1)
+	[ -z "$ln" ] && { printf '%s' '没有记录'; return; }
+	set -- $ln
+	mon=$5; day=$6; t=$7; host=${3:-}
+	when=$(date -d "$mon $day $t" '+%m-%d %H:%M' 2>/dev/null) || when="$mon $day $t"
+	printf '%s 来自 %s' "$when" "${host:-本地}"
+}
+
+# ---------------------------------------------------------------- 取数
+eval "$(awk -F'[: ]+' '/^(MemTotal|MemAvailable|SwapTotal|SwapFree)/ {printf "%s=%d\n", tolower($1), $2}' /proc/meminfo)"
+memtotal=${memtotal:-0}; memavailable=${memavailable:-0}
+swaptotal=${swaptotal:-0}; swapfree=${swapfree:-0}
+memused=$(( memtotal - memavailable ))
+mpct=0; [ "$memtotal" -gt 0 ] && mpct=$(( memused * 100 / memtotal ))
+swused=$(( swaptotal - swapfree ))
+spct=0; [ "$swaptotal" -gt 0 ] && spct=$(( swused * 100 / swaptotal ))
+
+set -- $(df -P / | awk 'NR==2{gsub("%","",$5); print $2, $3, $5}')
+dtotal=${1:-0}; dused=${2:-0}; dpct=${3:-0}
+
+set -- $(cut -d' ' -f1-3 /proc/loadavg)
+l1=$(printf '%.2f' "${1:-0}"); l5=$(printf '%.2f' "${2:-0}"); l15=$(printf '%.2f' "${3:-0}")
+cores=$(nproc 2>/dev/null || echo 1)
+case $cores in (*[!0-9]*|'') cores=1;; esac
+lpct=$(( 10#${l1/./} * 100 / (cores * 100) ))
+
+NOW=$(date '+%Y-%m-%d %H:%M:%S %Z')
+
+# CPU / GPU / IP：CPU 和 IPv4 一定显示，GPU 和 IPv6 有才显示
+CPU_MODEL=$(awk -F': ' '/model name/{print $2; exit}' /proc/cpuinfo 2>/dev/null)
+[ -z "$CPU_MODEL" ] && CPU_MODEL=$(uname -m)
+GPU_MODEL=''
+if command -v lspci >/dev/null 2>&1; then
+	GPU_MODEL=$(lspci 2>/dev/null | grep -i -m1 -E 'vga compatible|3d controller|display controller' \
+		| sed -e 's/^[0-9a-f:.]* *//' -e 's/^[^:]*: *//' -e 's/ *(rev [0-9a-f]*)//')
+fi
+DEF_IFACE=$(ip route 2>/dev/null | awk '/^default/{print $5; exit}')
+IPV4=$(ip route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')
+[ -z "$IPV4" ] && IPV4=$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)
+IPV6=''
+[ -n "$DEF_IFACE" ] && IPV6=$(ip -6 -o addr show dev "$DEF_IFACE" scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)
+SESS=$(who 2>/dev/null | wc -l)
+WHOIP=$(who 2>/dev/null | awk 'NR==1{h=$NF; if (h ~ /^\(/) {gsub(/[()]/,"",h); print h}}')
+[ -n "$WHOIP" ] && WHOIP="来自 $WHOIP" || WHOIP=''
+LASTLOG=$(last_info)
+PROC=$(ps -e --no-headers 2>/dev/null | wc -l)
+ZOMB=$(ps -e -o stat= 2>/dev/null | grep -c '^Z')
+upd=$(awk '/^[0-9]+ updates can be applied/{print $1; exit}' /var/lib/update-notifier/updates-available 2>/dev/null)
+ufail=$(systemctl list-units --failed --no-legend --no-pager 2>/dev/null | grep -c '[a-z]')
+reboot=0; [ -e /var/run/reboot-required ] && reboot=1
+
+DL=$(docker ps -a --format '{{.ID}}|{{.Names}}|{{.State}}|{{.Label "com.docker.compose.project"}}' 2>/dev/null)
+drun=0; dtot=0; compose=0
+if [ -n "$DL" ]; then
+	read -r drun dtot compose < <(printf '%s\n' "$DL" | awk -F'|' '
+		NF>2{t++; if ($3=="running") r++; if ($4!="") c[$4]=1}
+		END{n=0; for (k in c) n++; printf "%d %d %d", r+0, t+0, n}')
+fi
+
+# 谁在吃内存：RSS 前 6 的进程映射回容器名（没有 docker 就直接用进程名）
+hogs=''
+declare -A CN=() HSUM=()
+if [ -n "$DL" ]; then
+	while IFS='|' read -r cid cname rest; do
+		[ -n "$cid" ] && CN[${cid:0:12}]=$cname
+	done <<< "$DL"
+fi
+while read -r rss pid; do
+	cid=''
+	while IFS= read -r ln; do
+		case $ln in
+			*docker-*) x=${ln##*docker-}; cid=${x:0:12} ;;
+		esac
+	done < "/proc/$pid/cgroup" 2>/dev/null
+	nm=''
+	[ -n "$cid" ] && nm=${CN[$cid]:-}
+	[ -z "$nm" ] && nm=$(ps -o comm= -p "$pid" 2>/dev/null)
+	[ -n "$nm" ] && HSUM[$nm]=$(( ${HSUM[$nm]:-0} + rss ))
+done < <(ps -eo rss=,pid= --sort=-rss 2>/dev/null | head -6)
+if [ "${#HSUM[@]}" -gt 0 ]; then
+	hogs=$(for k in "${!HSUM[@]}"; do printf '%s|%s\n' "${HSUM[$k]}" "$k"; done \
+		| sort -rn | head -3 | while IFS='|' read -r kb nm; do
+			if [ "$kb" -ge 1048576 ]; then
+				printf '%s %d.%dG · ' "${nm:0:26}" $(( kb / 1048576 )) $(( (kb % 1048576) * 10 / 1048576 ))
+			else
+				printf '%s %dM · ' "${nm:0:26}" $(( kb / 1024 ))
+			fi
+		done)
+	hogs=${hogs% · }
+fi
+
+# ---------------------------------------------------------------- 输出
+printf '%s\n' "${BLUE}══════════════════════════════════════════════════════════════════${RESET}"
+printf '         %s%s%s  ·  %s\n' "$BOLD" "$HOST" "$RESET" "${PRETTY_NAME:-Linux}"
+printf '         %s%s  ·  %s  ·  已运行 %s%s\n' "$DIM" "$KERNEL" "$ARCH" "$(uptime_h)" "$RESET"
+printf '%s\n\n' "${BLUE}══════════════════════════════════════════════════════════════════${RESET}"
+
+lab '系统时间'; printf '%s\n' "$NOW"
+lab '登录会话'
+if [ -n "$WHOIP" ]; then
+	printf '%s 个在线  %s%s%s\n' "$SESS" "$DIM" "$WHOIP" "$RESET"
+else
+	printf '%s 个在线\n' "$SESS"
+fi
+lab '上次登录'; printf '%s\n' "$LASTLOG"
+lab 'CPU型号'; printf '%s\n' "$CPU_MODEL"
+if [ -n "$GPU_MODEL" ]; then
+	lab 'GPU型号'; printf '%s\n' "$GPU_MODEL"
+fi
+lab 'IPv4'; printf '%s\n' "${IPV4:--}"
+if [ -n "$IPV6" ]; then
+	lab 'IPv6'; printf '%s\n' "$IPV6"
+fi
+lab '系统负载'; printf '%s / %s / %s   %s(%s 核 · %s%%)%s\n' "$l1" "$l5" "$l15" "$DIM" "$cores" "$lpct" "$RESET"
+res_row '内存使用' "$mpct" "$memused" "$memtotal"
+res_row '交换分区' "$spct" "$swused" "$swaptotal"
+res_row '根分区' "$dpct" "$dused" "$dtotal"
+lab '进程数'; printf '%s\n' "$PROC"
+echo
+if [ "$dtot" -gt 0 ]; then
+	lab '容器状态'
+	if [ "$drun" -eq 0 ]; then
+		printf '%s0 运行%s / %d 个全部停止\n' "$RED" "$RESET" "$dtot"
+	elif [ "$drun" -eq "$dtot" ]; then
+		printf '%s%d 运行%s · %s 个 compose 项目\n' "$GREEN" "$drun" "$RESET" "$compose"
+	else
+		printf '%s%d 运行%s / %s%d 停止%s · %s 个 compose 项目\n' \
+			"$GREEN" "$drun" "$RESET" "$DIM" "$(( dtot - drun ))" "$RESET" "$compose"
+	fi
+fi
+if [ -n "$hogs" ]; then
+	lab '内存大户'; printf '%s%s%s\n' "$DIM" "$hogs" "$RESET"
+fi
+lab '服务单元'
+if [ "${ufail:-0}" -gt 0 ]; then
+	printf '%s%s 个 failed%s\n' "$RED" "$ufail" "$RESET"
+else
+	printf '%s0 failed%s\n' "$GREEN" "$RESET"
+fi
+
+# ---------------------------------------------------------------- 组网
+# 只有装了 tailscale 的机器才显示这一行
+if command -v tailscale >/dev/null 2>&1; then
+	lab '组网状态'
+	ts_state=''; ts_ip=''; ts_peers=''; ts_off=''
+	if command -v jq >/dev/null 2>&1; then
+		ts=$(tailscale status --json 2>/dev/null)
+		if [ -n "$ts" ]; then
+			IFS=$'\t' read -r ts_state ts_ip ts_peers ts_off ts_offnames < <(printf '%s' "$ts" | jq -r '
+				[ .BackendState,
+				  ([.Self.TailscaleIPs[]? | select(startswith("100."))][0] // "-"),
+				  (.Peer | length),
+				  ([.Peer[]? | select(.Online | not)] | length),
+				  ([.Peer[]? | select(.Online | not) | (.DNSName // "" | split(".")[0] | if . == "" then "?" else . end)] | join("/")) ] | @tsv' 2>/dev/null)
+		fi
+	fi
+	case ${ts_state:-} in
+		Running)
+			col=$GREEN; txt="✓ 在线 · $(( ${ts_peers:-0} + 1 )) 节点"
+			if [ "${ts_off:-0}" -gt 0 ]; then
+				names=$(printf '%s' "${ts_offnames:-}" | awk -F'/' '{printf "%s", $1; if (NF>1) printf ", %s", $2; if (NF>2) printf "…"}')
+				txt="$txt · ${ts_off} 离线（${names:-?}）"
+			fi
+			;;
+		NeedsLogin) col=$RED;    txt="✗ 需要重新登录" ;;
+		Stopped)    col=$YELLOW; txt="— 已停止" ;;
+		'')         col=$RED;    txt="✗ 取不到状态（tailscaled 没起？）" ;;
+		*)          col=$YELLOW; txt="? $ts_state" ;;
+	esac
+	printf '%s%s%s  %s%s%s\n' "$col" "$txt" "$RESET" "$DIM" "${ts_ip:--}" "$RESET"
+fi
+
+# ---------------------------------------------------------------- 代理探活
+# ~/.motd-links 里的 PROXY|host:port 行；没有这行就整行不显示
+# 探针故意用 google（直连被墙），gstatic 直连就 204，会假绿
+PROXY=$(awk -F'|' '$1=="PROXY"{print $2; exit}' "$LINKS" 2>/dev/null)
+if [ -n "$PROXY" ]; then
+	lab '代理状态'
+	if ! command -v curl >/dev/null 2>&1; then
+		printf '%s— 未检测%s  %s%s%s\n' "$DIM" "$RESET" "$DIM" "$PROXY" "$RESET"
+	else
+		resp=$(curl -x "http://$PROXY" -s -o /dev/null -w '%{http_code} %{time_total}' \
+			--connect-timeout 1 --max-time 3 \
+			https://www.google.com/generate_204 2>/dev/null)
+		rc=$?
+		code=${resp%% *}; secs=${resp##* }
+		case $code in
+			2??)       col=$GREEN; txt="✓ 可用 $(printf '%.2f' "${secs:-0}")s" ;;
+			407)       col=$RED;   txt="✗ 需要认证" ;;
+			4??|5??)   col=$RED;   txt="✗ $code · 上游不通" ;;
+			*) case $rc in
+				7)        col=$RED; txt="✗ 端口不通" ;;
+				28)       col=$RED; txt="✗ 超时 3s" ;;
+				35|52|56) col=$RED; txt="✗ 隧道被断 · 上游不通" ;;
+				*)        col=$RED; txt="✗ 失败 (http=${code:-?} rc=$rc)" ;;
+			   esac ;;
+		esac
+		printf '%s%s%s  %s%s%s\n' "$col" "$txt" "$RESET" "$DIM" "$PROXY" "$RESET"
+	fi
+fi
+lab '可更新包'
+if [ -n "${upd:-}" ] && [ "${upd:-0}" -gt 0 ]; then
+	printf '%s%s 个%s\n' "$YELLOW" "$upd" "$RESET"
+else
+	printf '%s0 个%s\n' "$GREEN" "$RESET"
+fi
+
+# ---------------------------------------------------------------- 提醒
+if [ "$reboot" -eq 1 ]; then
+	pk=$(tr '\n' ' ' < /var/run/reboot-required.pkgs 2>/dev/null)
+	n=$(printf '%s\n' "$pk" | wc -w)
+	first=$(printf '%s\n' "$pk" | awk '{print $1}')
+	echo
+	if [ "$n" -gt 1 ]; then
+		printf '%s[!]%s 需要重启   %s 等 %d 个包\n' "$RED" "$RESET" "$first" "$n"
+	else
+		printf '%s[!]%s 需要重启   %s\n' "$RED" "$RESET" "${first:-内核/基础库更新}"
+	fi
+fi
+[ "$mpct" -ge 90 ] && printf '%s[!]%s 内存使用   %d%%，注意 OOM\n' "$RED" "$RESET" "$mpct"
+[ "$spct" -ge 90 ] && printf '%s[!]%s 交换分区   %d%%，接近耗尽\n' "$RED" "$RESET" "$spct"
+[ "$dpct" -ge 85 ] && printf '%s[!]%s 根分区     %d%%，该清理了\n' "$RED" "$RESET" "$dpct"
+[ "${ZOMB:-0}" -gt 0 ] && printf '%s[!]%s 僵尸进程   %d 个\n' "$RED" "$RESET" "$ZOMB"
+
+# ---------------------------------------------------------------- 服务入口
+if [ -r "$LINKS" ]; then
+	svc=$(grep -vE '^[[:space:]]*(#|$)' "$LINKS" 2>/dev/null | grep -v '^PROXY|')
+	if [ -n "$svc" ]; then
+		nw=$(printf '%s\n' "$svc" | awk -F'|' '{l=length($1); if (l>m) m=l} END{print m+1}')
+		printf '\n  %s服务入口%s\n' "$DIM" "$RESET"
+		printf '%s\n' "$svc" | while IFS='|' read -r name url note; do
+			[ -z "$name" ] && continue
+			if [ -n "$note" ]; then
+				printf '    %s%-*s%s  %s%s%s  %s%s%s\n' \
+					"$BOLD" "${nw:-1}" "$name" "$RESET" \
+					"$CYAN" "$url" "$RESET" \
+					"$DIM" "$note" "$RESET"
+			else
+				printf '    %s%-*s%s  %s%s%s\n' \
+					"$BOLD" "${nw:-1}" "$name" "$RESET" \
+					"$CYAN" "$url" "$RESET"
+			fi
+		done
+	fi
+fi
+
+printf '\n%s\n' "${BLUE}══════════════════════════════════════════════════════════════════${RESET}"
