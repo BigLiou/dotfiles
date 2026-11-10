@@ -111,10 +111,13 @@ NOW=$(date '+%Y-%m-%d %H:%M:%S %Z')
 # CPU / GPU / IP：CPU 和 IPv4 一定显示，GPU 和 IPv6 有才显示
 CPU_MODEL=$(awk -F': ' '/model name/{print $2; exit}' /proc/cpuinfo 2>/dev/null)
 [ -z "$CPU_MODEL" ] && CPU_MODEL=$(uname -m)
-GPU_MODEL=''
+# 按 PCI 顺序收集全部显示设备（核显可能在独显之前，全部保留）
+GPU_MODELS=()
 if command -v lspci >/dev/null 2>&1; then
-	GPU_MODEL=$(lspci 2>/dev/null | grep -i -m1 -E 'vga compatible|3d controller|display controller' \
-		| sed -e 's/^[0-9a-f:.]* *//' -e 's/^[^:]*: *//' -e 's/ *(rev [0-9a-f]*)//')
+	while IFS= read -r _l; do
+		[ -z "$_l" ] && continue
+		GPU_MODELS+=("$(printf '%s' "$_l" | sed -e 's/^[0-9a-f:.]* *//' -e 's/^[^:]*: *//' -e 's/ *(rev [0-9a-f]*)//')")
+	done < <(lspci 2>/dev/null | grep -i -E 'vga compatible|3d controller|display controller')
 fi
 DEF_IFACE=$(ip route 2>/dev/null | awk '/^default/{print $5; exit}')
 IPV4=$(ip route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')
@@ -186,8 +189,11 @@ else
 fi
 lab '上次登录'; printf '%s\n' "$LASTLOG"
 lab 'CPU型号'; printf '%s\n' "$CPU_MODEL"
-if [ -n "$GPU_MODEL" ]; then
-	lab 'GPU型号'; printf '%s\n' "$GPU_MODEL"
+if [ ${#GPU_MODELS[@]} -gt 0 ]; then
+	lab 'GPU型号'; printf '%s\n' "${GPU_MODELS[0]}"
+	for _g in "${GPU_MODELS[@]:1}"; do
+		printf '%*s%s\n' "$COL" '' "$_g"
+	done
 fi
 lab 'IPv4'; printf '%s\n' "${IPV4:--}"
 if [ -n "$IPV6" ]; then
