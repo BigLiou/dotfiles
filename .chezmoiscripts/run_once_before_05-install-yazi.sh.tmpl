@@ -67,8 +67,17 @@ else
     echo "❌ 既没有 unzip 也没有 python3，无法解开压缩包"
     exit 1
 fi
-install -m 755 "$TMP/pkg/yazi" "$HOME/.local/bin/yazi"
-[ -f "$TMP/pkg/ya" ] && install -m 755 "$TMP/pkg/ya" "$HOME/.local/bin/ya"
+# 压缩包内是 yazi-<target>/yazi 与 yazi-<target>/ya，用 find 定位，避免依赖层级
+YAZI_BIN="$(find "$TMP/pkg" -type f -name yazi | head -1)"
+YA_BIN="$(find "$TMP/pkg" -type f -name ya | head -1)"
+
+if [ -z "$YAZI_BIN" ]; then
+    echo "❌ 压缩包内未找到 yazi 可执行文件"
+    exit 1
+fi
+
+install -m 755 "$YAZI_BIN" "$HOME/.local/bin/yazi"
+[ -n "$YA_BIN" ] && install -m 755 "$YA_BIN" "$HOME/.local/bin/ya"
 
 "$HOME/.local/bin/yazi" --version | head -1
 echo "✅ yazi 安装完成 -> $HOME/.local/bin/yazi"
