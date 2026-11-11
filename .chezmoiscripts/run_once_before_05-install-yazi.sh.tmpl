@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # run_once_before_05-install-yazi.sh.tmpl
-# 安装 yazi（官方 APT 源，仅首次 apply 执行，Ubuntu）
+# 安装 yazi（仅首次 apply 执行）
+# 直接取 GitHub Release 的二进制包，避免 apt 源拉入 160+ 个图形依赖
 
 set -euo pipefail
 
@@ -16,14 +17,42 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
 fi
 
 if command -v yazi &>/dev/null; then
-    echo "✅ yazi 已安装"
+    echo "✅ yazi 已安装（$(command -v yazi)）"
     exit 0
 fi
 
-echo "⏳ 添加 yazi 官方 APT 源..."
-curl -fsSL https://yazi-rs.github.io/builds/yazi-keyring.gpg | sudo tee /usr/share/keyrings/yazi-keyring.gpg >/dev/null
-echo 'deb [signed-by=/usr/share/keyrings/yazi-keyring.gpg] https://yazi-rs.github.io/builds/ stable main' | sudo tee /etc/apt/sources.list.d/yazi.list >/dev/null
-sudo apt-get update -y
 echo "⏳ 安装 yazi..."
-sudo apt-get install -y yazi
-echo "✅ yazi 安装完成"
+mkdir -p "$HOME/.local/bin"
+
+source "{{ .chezmoi.sourceDir }}/lib/fetch.sh"
+
+case "$(uname -m)" in
+    x86_64)          YAZI_TARGET="x86_64-unknown-linux-gnu" ;;
+    aarch64 | arm64) YAZI_TARGET="aarch64-unknown-linux-gnu" ;;
+    i686 | i386)     YAZI_TARGET="i686-unknown-linux-gnu" ;;
+    *)               echo "❌ 不支持的架构: $(uname -m)"; exit 1 ;;
+esac
+
+VER="$(gh_latest_tag "sxyazi/yazi")"
+if [ -z "$VER" ]; then
+    echo "❌ 无法获取 yazi 版本号（api.github.com 与镜像均不可用）"
+    exit 1
+fi
+echo "ℹ️  版本 $VER / $YAZI_TARGET"
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+gh_get "sxyazi/yazi/releases/download/v${VER}/yazi-${YAZI_TARGET}.zip" "$TMP/yazi.zip" || exit 1
+
+if ! unzip -tq "$TMP/yazi.zip" >/dev/null 2>&1; then
+    echo "❌ 下载内容不是有效的 zip（可能是镜像错误页）"
+    exit 1
+fi
+
+unzip -oq "$TMP/yazi.zip" -d "$TMP/pkg"
+install -m 755 "$TMP/pkg/yazi" "$HOME/.local/bin/yazi"
+[ -f "$TMP/pkg/ya" ] && install -m 755 "$TMP/pkg/ya" "$HOME/.local/bin/ya"
+
+"$HOME/.local/bin/yazi" --version | head -1
+echo "✅ yazi 安装完成 -> $HOME/.local/bin/yazi"
