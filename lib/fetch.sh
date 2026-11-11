@@ -21,7 +21,7 @@ GH_MIRRORS="${GH_MIRRORS:-https://gh-proxy.com/ https://ghfast.top/}"
 GH_STATE="${GH_STATE:-${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/gh-state}"
 GH_DIRECT="${GH_DIRECT:-1}"
 GH_CONNECT_TIMEOUT="${GH_CONNECT_TIMEOUT:-8}"
-GH_MAX_TIME="${GH_MAX_TIME:-300}"
+GH_MAX_TIME="${GH_MAX_TIME:-900}"
 GH_RETRIES="${GH_RETRIES:-3}"
 
 _gh_mark() {
@@ -40,7 +40,7 @@ _gh_direct_blocked() {
 }
 
 _gh_curl() {
-    curl -fL \
+    curl -fL -C - \
         --connect-timeout "$GH_CONNECT_TIMEOUT" \
         --max-time "$GH_MAX_TIME" \
         --speed-limit 1024 --speed-time 30 \
@@ -57,7 +57,7 @@ gh_get() {
     mkdir -p "$(dirname "$out")" 2>/dev/null || true
 
     if ! _gh_direct_blocked; then
-        if _gh_curl -o "$out" "$url" 2>/dev/null; then
+        if _gh_curl -o "$out" "$url" 2>/dev/null || _gh_curl -o "$out" "$url" 2>/dev/null; then
             _gh_mark direct
             return 0
         fi
@@ -65,7 +65,7 @@ gh_get() {
     fi
 
     for m in $GH_MIRRORS; do
-        if _gh_curl -o "$out" "${m}${url}" 2>/dev/null; then
+        if _gh_curl -o "$out" "${m}${url}" 2>/dev/null || _gh_curl -o "$out" "${m}${url}" 2>/dev/null; then
             return 0
         fi
     done

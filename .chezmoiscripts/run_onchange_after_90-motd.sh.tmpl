@@ -30,11 +30,11 @@ fi
 echo "⏳ 安装 motd 面板..."
 sudo install -m 755 "$SRC" "$DST"
 
-echo "⏳ 关闭除 85-fwupd 外的系统默认 motd 项（固件提示保留）..."
+echo "⏳ 关闭系统默认 motd 项（fwupd 信息改由 /run/motd.d 打印，避免重复）..."
 for f in /etc/update-motd.d/*; do
     base="$(basename "$f")"
     case "$base" in
-        20-custom-status|85-fwupd|*.disabled) continue ;;
+        20-custom-status|*.disabled) continue ;;
     esac
     sudo mv "$f" "$f.disabled"
 done

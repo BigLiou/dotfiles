@@ -15,6 +15,8 @@ if ! command -v zsh &>/dev/null; then
     exit 0
 fi
 
+source "{{ .chezmoi.sourceDir }}/lib/fetch.sh"
+
 ZSH_PATH="$(command -v zsh)"
 if [[ "$SHELL" == "$ZSH_PATH" ]]; then
     echo "✅ 默认 shell 已是 zsh"
@@ -28,11 +30,24 @@ if sudo -n chsh -s "$ZSH_PATH" "$USER" 2>/dev/null; then
     echo "   当前会话执行以下命令立即切换到 zsh："
     echo "   exec zsh"
     export SHELL="$ZSH_PATH"
-    # 显式安装 zinit 插件（无需 exec zsh 触发 .zshrc）
+    # 预置 zinit 插件：zinit light 内部会直接 git clone github.com，
+    # 受限网络下会卡 2 分钟并让整个 apply 中断；这里先用 gh_clone 走镜像。
+    ZINIT_PLUGINS="$HOME/.local/share/zinit/plugins"
+    mkdir -p "$ZINIT_PLUGINS"
+    for repo in zsh-users/zsh-autosuggestions zsh-users/zsh-completions zsh-users/zsh-syntax-highlighting; do
+        name="$(printf '%s' "$repo" | sed 's|/|---|')"
+        [ -d "$ZINIT_PLUGINS/$name" ] && continue
+        if ! gh_clone "$repo" "$ZINIT_PLUGINS/$name"; then
+            echo "⚠️ 插件 $repo 克隆失败，首次启动 zsh 时会重试"
+        fi
+    done
+
+    # 加载一次，让 zinit 记录已安装状态（失败不影响其他配置）
     zsh -c 'source "$HOME/.local/share/zinit/zinit.zsh" && \
       zinit light zsh-users/zsh-autosuggestions && \
       zinit light zsh-users/zsh-completions && \
-      zinit light zsh-users/zsh-syntax-highlighting'
+      zinit light zsh-users/zsh-syntax-highlighting' \
+      || echo "⚠️ zinit 插件初始化未完成，可稍后手动执行" 
 else
     echo "⚠️ 默认 shell 设置失败，请稍后手动运行:"
     echo "   chsh -s $(command -v zsh)"
