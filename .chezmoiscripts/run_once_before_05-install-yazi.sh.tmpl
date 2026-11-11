@@ -45,12 +45,28 @@ trap 'rm -rf "$TMP"' EXIT
 
 gh_get "sxyazi/yazi/releases/download/v${VER}/yazi-${YAZI_TARGET}.zip" "$TMP/yazi.zip" || exit 1
 
-if ! unzip -tq "$TMP/yazi.zip" >/dev/null 2>&1; then
-    echo "❌ 下载内容不是有效的 zip（可能是镜像错误页）"
+mkdir -p "$TMP/pkg"
+
+# 优先用 unzip；极简镜像可能没装（如 ubuntu-base），回退到 python3 的 zipfile
+if command -v unzip >/dev/null 2>&1; then
+    if ! unzip -tq "$TMP/yazi.zip" >/dev/null 2>&1; then
+        echo "❌ 下载内容不是有效的 zip（可能是镜像错误页）"
+        exit 1
+    fi
+    unzip -oq "$TMP/yazi.zip" -d "$TMP/pkg"
+elif command -v python3 >/dev/null 2>&1; then
+    python3 - "$TMP/yazi.zip" "$TMP/pkg" <<'PY' || { echo "❌ zip 校验/解压失败（python3）"; exit 1; }
+import sys, zipfile
+with zipfile.ZipFile(sys.argv[1]) as z:
+    bad = z.testzip()
+    if bad:
+        print("corrupt member:", bad); sys.exit(1)
+    z.extractall(sys.argv[2])
+PY
+else
+    echo "❌ 既没有 unzip 也没有 python3，无法解开压缩包"
     exit 1
 fi
-
-unzip -oq "$TMP/yazi.zip" -d "$TMP/pkg"
 install -m 755 "$TMP/pkg/yazi" "$HOME/.local/bin/yazi"
 [ -f "$TMP/pkg/ya" ] && install -m 755 "$TMP/pkg/ya" "$HOME/.local/bin/ya"
 
